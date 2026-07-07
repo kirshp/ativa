@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import 'eras_data.dart';
 import 'gazetteer.dart';
@@ -1793,6 +1794,19 @@ class _MapPageState extends State<MapPage> {
           ],
         ),
         Positioned(
+          right: 14,
+          bottom: 24,
+          child: FloatingActionButton.extended(
+            heroTag: 'map3d',
+            backgroundColor: kGreen,
+            foregroundColor: Colors.white,
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const Map3DPage())),
+            icon: const Icon(Icons.threed_rotation),
+            label: const Text('3D'),
+          ),
+        ),
+        Positioned(
           top: 10,
           left: 0,
           right: 0,
@@ -1819,6 +1833,44 @@ class _MapPageState extends State<MapPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class Map3DPage extends StatefulWidget {
+  const Map3DPage({super.key});
+
+  @override
+  State<Map3DPage> createState() => _Map3DPageState();
+}
+
+class _Map3DPageState extends State<Map3DPage> {
+  late final WebViewController _c;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) setState(() => _loading = false);
+          }))
+      ..loadRequest(Uri.parse('https://shpara.com/madeira/map3d'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('3D')),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _c),
+          if (_loading)
+            const Center(child: CircularProgressIndicator(color: kGreen)),
+        ],
+      ),
     );
   }
 }
