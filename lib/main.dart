@@ -39,6 +39,7 @@ extension AtivaColors on BuildContext {
 }
 
 final locale = ValueNotifier<String>('en');
+final themeModeN = ValueNotifier<ThemeMode>(ThemeMode.system);
 
 const _tr = {
   'en': {
@@ -94,6 +95,10 @@ const _tr = {
     'remind': 'Remind me',
     'remind_set': 'Reminder set — the day before at 18:00',
     'remind_off': 'Reminder removed',
+    'theme': 'Theme',
+    'theme_system': 'System',
+    'theme_light': 'Light',
+    'theme_dark': 'Dark',
   },
   'pt': {
     'home': 'Início',
@@ -148,6 +153,10 @@ const _tr = {
     'remind': 'Lembrar-me',
     'remind_set': 'Lembrete definido — véspera às 18:00',
     'remind_off': 'Lembrete removido',
+    'theme': 'Tema',
+    'theme_system': 'Sistema',
+    'theme_light': 'Claro',
+    'theme_dark': 'Escuro',
   },
 };
 
@@ -165,7 +174,15 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initStore();
   await initNotify();
+  final saved = prefs.getString('themeMode');
+  themeModeN.value = ThemeMode.values.firstWhere((m) => m.name == saved,
+      orElse: () => ThemeMode.system);
   runApp(const AtivaApp());
+}
+
+void setThemeMode(ThemeMode m) {
+  themeModeN.value = m;
+  prefs.setString('themeMode', m.name);
 }
 
 class AtivaApp extends StatelessWidget {
@@ -173,12 +190,12 @@ class AtivaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: locale,
-      builder: (_, __, ___) => MaterialApp(
+    return ListenableBuilder(
+      listenable: Listenable.merge([locale, themeModeN]),
+      builder: (_, __) => MaterialApp(
         title: 'Madeira Ativa',
         debugShowCheckedModeBanner: false,
-        themeMode: ThemeMode.system,
+        themeMode: themeModeN.value,
         theme: ThemeData(
           useMaterial3: true,
           scaffoldBackgroundColor: kCream,
@@ -242,7 +259,10 @@ class _HomeShellState extends State<HomeShell> {
       appBar: AppBar(
         leading: Padding(
           padding: const EdgeInsets.only(left: 12),
-          child: Image.asset('assets/icon.png', width: 30, height: 30),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset('assets/icon.png', width: 30, height: 30),
+          ),
         ),
         title: const Text('Madeira Ativa',
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
@@ -263,7 +283,6 @@ class _HomeShellState extends State<HomeShell> {
         ],
       ),
       endDrawer: Drawer(
-        backgroundColor: kCream,
         child: ListView(
           children: [
             const DrawerHeader(
@@ -295,6 +314,41 @@ class _HomeShellState extends State<HomeShell> {
                 locale.value = locale.value == 'en' ? 'pt' : 'en';
                 Navigator.pop(context);
               },
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.brightness_6, color: kTerracotta),
+                  const SizedBox(width: 12),
+                  Text(t('theme'), style: TextStyle(color: context.cBody)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: SegmentedButton<ThemeMode>(
+                segments: [
+                  ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: const Icon(Icons.brightness_auto, size: 18),
+                      label: Text(t('theme_system'),
+                          style: const TextStyle(fontSize: 11))),
+                  ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: const Icon(Icons.light_mode, size: 18),
+                      label: Text(t('theme_light'),
+                          style: const TextStyle(fontSize: 11))),
+                  ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: const Icon(Icons.dark_mode, size: 18),
+                      label: Text(t('theme_dark'),
+                          style: const TextStyle(fontSize: 11))),
+                ],
+                selected: {themeModeN.value},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => setThemeMode(s.first),
+              ),
             ),
           ],
         ),
@@ -499,7 +553,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final hero = _events?.isNotEmpty == true ? _events!.first : null;
-    final mix = _mixed().skip(1).toList();
+    final mix = _mixed().skip(1).take(3).toList();
 
     return RefreshIndicator(
       color: kGreen,
@@ -1177,12 +1231,12 @@ class _EventsPageState extends State<EventsPage> {
                         : '${cat.$2} ${cat.$3}'),
                     selected: _filter == cat.$1,
                     selectedColor: kGreen,
-                    backgroundColor: Colors.white,
+                    backgroundColor: context.cSurface,
                     shape: StadiumBorder(
                         side: BorderSide(
                             color: _filter == cat.$1
                                 ? kGreen
-                                : Colors.grey.shade300)),
+                                : context.cHairline)),
                     labelStyle: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1544,7 +1598,6 @@ class _MapPageState extends State<MapPage> {
   void _showTrail(Levada l) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kCream,
       builder: (_) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
