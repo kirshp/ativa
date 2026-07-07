@@ -99,6 +99,7 @@ const _tr = {
     'theme_system': 'System',
     'theme_light': 'Light',
     'theme_dark': 'Dark',
+    'contact': 'Contact developer',
   },
   'pt': {
     'home': 'Início',
@@ -157,6 +158,7 @@ const _tr = {
     'theme_system': 'Sistema',
     'theme_light': 'Claro',
     'theme_dark': 'Escuro',
+    'contact': 'Contactar o programador',
   },
 };
 
@@ -259,10 +261,7 @@ class _HomeShellState extends State<HomeShell> {
       appBar: AppBar(
         leading: Padding(
           padding: const EdgeInsets.only(left: 12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset('assets/icon.png', width: 30, height: 30),
-          ),
+          child: Image.asset('assets/icon_mark.png', width: 32, height: 32),
         ),
         title: const Text('Madeira Ativa',
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
@@ -305,6 +304,13 @@ class _HomeShellState extends State<HomeShell> {
               leading: const Icon(Icons.send, color: kGreen),
               title: Text(t('telegram')),
               onTap: () => openUrl('https://t.me/madeira_ebot'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline, color: kGreen),
+              title: Text(t('contact')),
+              subtitle: const Text('azenha.agent@gmail.com'),
+              onTap: () => openUrl(
+                  'mailto:azenha.agent@gmail.com?subject=Madeira%20Ativa'),
             ),
             const Divider(),
             ListTile(
