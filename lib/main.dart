@@ -3,7 +3,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:add_2_calendar/add_2_calendar.dart';
+import 'package:share_plus/share_plus.dart';
+
 import 'eras_data.dart';
+import 'notify.dart';
 import 'roots_data.dart';
 import 'store.dart';
 
@@ -79,6 +83,17 @@ const _tr = {
     'on_tv': 'On TV',
     'broadcasts': 'Broadcasts',
     'view_all_tv': 'All broadcasts',
+    'p_week': 'Week',
+    'p_month': 'Month',
+    'p_3mo': '3 mo',
+    'p_6mo': '6 mo',
+    'p_year': 'Year',
+    'add_calendar': 'Add to calendar',
+    'share': 'Share',
+    'open_site': 'Open site',
+    'remind': 'Remind me',
+    'remind_set': 'Reminder set — the day before at 18:00',
+    'remind_off': 'Reminder removed',
   },
   'pt': {
     'home': 'Início',
@@ -122,6 +137,17 @@ const _tr = {
     'on_tv': 'Na TV',
     'broadcasts': 'Transmissões',
     'view_all_tv': 'Todas as transmissões',
+    'p_week': 'Semana',
+    'p_month': 'Mês',
+    'p_3mo': '3 meses',
+    'p_6mo': '6 meses',
+    'p_year': 'Ano',
+    'add_calendar': 'Adicionar ao calendário',
+    'share': 'Partilhar',
+    'open_site': 'Abrir site',
+    'remind': 'Lembrar-me',
+    'remind_set': 'Lembrete definido — véspera às 18:00',
+    'remind_off': 'Lembrete removido',
   },
 };
 
@@ -138,6 +164,7 @@ Future<void> openUrl(String url) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initStore();
+  await initNotify();
   runApp(const AtivaApp());
 }
 
@@ -566,7 +593,7 @@ class _HomePageState extends State<HomePage> {
                 icon: _typeIcons[e.type] ?? Icons.event,
                 title: e.name,
                 subtitle: '${e.date} · ${e.location} · ${e.type}',
-                onTap: () => openUrl(e.url),
+                onTap: () => showEventActions(context, e),
               ),
           const SizedBox(height: 20),
           _SectionHeader(
@@ -697,6 +724,103 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+void showEventActions(BuildContext context, AtivaEvent e) {
+  final key = 'event:${e.name}|${e.date}';
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+            child: Text(e.name,
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: ctx.cTitle)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Text(
+                [e.date, if (e.location.isNotEmpty) e.location, e.type]
+                    .join(' · '),
+                style: TextStyle(fontSize: 13, color: ctx.cSubtle)),
+          ),
+          if (e.url.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.open_in_new, color: kGreen),
+              title: Text(t('open_site')),
+              onTap: () {
+                Navigator.pop(ctx);
+                openUrl(e.url);
+              },
+            ),
+          ListTile(
+            leading: const Icon(Icons.event_available, color: kGreen),
+            title: Text(t('add_calendar')),
+            onTap: () {
+              Navigator.pop(ctx);
+              final parts = e.date.split('-');
+              final start = DateTime(int.parse(parts[0]), int.parse(parts[1]),
+                  int.parse(parts[2]), 9);
+              Add2Calendar.addEvent2Cal(Event(
+                title: e.name,
+                location: e.location,
+                startDate: start,
+                endDate: start.add(const Duration(hours: 2)),
+              ));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.ios_share, color: kGreen),
+            title: Text(t('share')),
+            onTap: () {
+              Navigator.pop(ctx);
+              final text = [
+                e.name,
+                '${e.date}${e.location.isEmpty ? '' : ' · ${e.location}'}',
+                if (e.url.isNotEmpty) e.url,
+                '— Madeira Ativa'
+              ].join('\n');
+              SharePlus.instance.share(ShareParams(text: text));
+            },
+          ),
+          ValueListenableBuilder(
+            valueListenable: reminders,
+            builder: (_, __, ___) {
+              final on = hasReminder(key);
+              return ListTile(
+                leading: Icon(on ? Icons.notifications_active : Icons.notifications_none,
+                    color: on ? kTerracotta : kGreen),
+                title: Text(t('remind')),
+                trailing: Switch(
+                  value: on,
+                  onChanged: (v) async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    if (v) {
+                      final ok = await setReminder(key, e.name, e.date);
+                      messenger.showSnackBar(SnackBar(
+                          content: Text(ok ? t('remind_set') : t('remind_off'))));
+                    } else {
+                      await cancelReminder(key);
+                      messenger.showSnackBar(
+                          SnackBar(content: Text(t('remind_off'))));
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final VoidCallback onMore;
@@ -790,6 +914,18 @@ class _EventsPageState extends State<EventsPage> {
   String _query = '';
   bool _searching = false;
   bool _favOnly = false;
+  String _period = 'month';
+
+  static const _periods = <(String, String, int)>[
+    ('week', 'p_week', 7),
+    ('month', 'p_month', 31),
+    ('3mo', 'p_3mo', 92),
+    ('6mo', 'p_6mo', 183),
+    ('year', 'p_year', 365),
+  ];
+
+  int get _periodDays =>
+      _periods.firstWhere((p) => p.$1 == _period).$3;
 
   String _favKey(AtivaEvent e) => 'event:${e.name}|${e.date}';
 
@@ -862,6 +998,13 @@ class _EventsPageState extends State<EventsPage> {
     };
     if (_day != null) {
       shown = shown.where((e) => e.date == _day).toList();
+    } else {
+      // No specific day picked: bound the list by the selected period window.
+      final end = DateTime.now()
+          .add(Duration(days: _periodDays))
+          .toIso8601String()
+          .substring(0, 10);
+      shown = shown.where((e) => e.date.compareTo(end) <= 0).toList();
     }
     if (_favOnly) {
       shown = shown.where((e) => isFav(_favKey(e))).toList();
@@ -934,6 +1077,35 @@ class _EventsPageState extends State<EventsPage> {
               onChanged: (v) => setState(() => _query = v),
             ),
           ),
+        SizedBox(
+          height: 38,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              for (final p in _periods)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: ChoiceChip(
+                    label: Text(t(p.$2)),
+                    selected: _day == null && _period == p.$1,
+                    showCheckmark: false,
+                    selectedColor: kGreen,
+                    labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: (_day == null && _period == p.$1)
+                            ? kGreenLight
+                            : context.cTitle),
+                    onSelected: (_) => setState(() {
+                      _period = p.$1;
+                      _day = null;
+                    }),
+                  ),
+                ),
+            ],
+          ),
+        ),
         SizedBox(
           height: 62,
           child: ListView(
@@ -1065,8 +1237,7 @@ class _EventsPageState extends State<EventsPage> {
                           subtitle: e.location.isEmpty
                               ? e.type
                               : '${e.location} · ${e.type}',
-                          onTap:
-                              e.url.isEmpty ? null : () => openUrl(e.url),
+                          onTap: () => showEventActions(context, e),
                           favKey: _favKey(e),
                         ),
                       ],
