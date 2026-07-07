@@ -14,6 +14,26 @@ const kTerracotta = Color(0xFF993C1D);
 const kTerracottaLight = Color(0xFFFAECE7);
 const kCream = Color(0xFFFAF8F2);
 
+// Dark-mode surfaces.
+const kDarkBg = Color(0xFF15140F);
+const kDarkCard = Color(0xFF23221C);
+const kGreenTintDark = Color(0xFF163A2E);
+const kTerraTintDark = Color(0xFF3A1E12);
+const kTerraBright = Color(0xFFE0885F);
+
+/// Theme-aware semantic colors so the app reads correctly in light and dark.
+extension AtivaColors on BuildContext {
+  bool get dark => Theme.of(this).brightness == Brightness.dark;
+  Color get cSurface => dark ? kDarkCard : Colors.white;
+  Color get cTitle => dark ? kGreenLight : kGreenDark;
+  Color get cBody => dark ? const Color(0xFFE8E6DE) : const Color(0xFF1C1B17);
+  Color get cSubtle => dark ? const Color(0xFF9A988E) : Colors.grey.shade600;
+  Color get cHairline => dark ? const Color(0xFF3A3931) : Colors.grey.shade300;
+  Color get cGreenTint => dark ? kGreenTintDark : kGreenLight;
+  Color get cTerraTint => dark ? kTerraTintDark : kTerracottaLight;
+  Color get cTerraText => dark ? kTerraBright : kTerracotta;
+}
+
 final locale = ValueNotifier<String>('en');
 
 const _tr = {
@@ -131,6 +151,7 @@ class AtivaApp extends StatelessWidget {
       builder: (_, __, ___) => MaterialApp(
         title: 'Madeira Ativa',
         debugShowCheckedModeBanner: false,
+        themeMode: ThemeMode.system,
         theme: ThemeData(
           useMaterial3: true,
           scaffoldBackgroundColor: kCream,
@@ -144,6 +165,23 @@ class AtivaApp extends StatelessWidget {
             backgroundColor: Colors.white,
             indicatorColor: kGreenLight,
           ),
+        ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: kDarkBg,
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: kGreen, brightness: Brightness.dark),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: kDarkBg,
+            foregroundColor: kGreenLight,
+            elevation: 0,
+          ),
+          navigationBarTheme: const NavigationBarThemeData(
+            backgroundColor: kDarkCard,
+            indicatorColor: kGreenTintDark,
+          ),
+          bottomSheetTheme:
+              const BottomSheetThemeData(backgroundColor: kDarkCard),
         ),
         home: const HomeShell(),
       ),
@@ -447,7 +485,7 @@ class _HomePageState extends State<HomePage> {
             margin: const EdgeInsets.only(bottom: 16),
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: kTerracottaLight,
+              color: context.cTerraTint,
               borderRadius: BorderRadius.circular(12),
             ),
             child: IntrinsicHeight(
@@ -462,11 +500,11 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(t('pessoa'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 15,
                                   height: 1.4,
                                   fontStyle: FontStyle.italic,
-                                  color: kGreenDark)),
+                                  color: context.cTitle)),
                           const SizedBox(height: 4),
                           Text(t('pessoa_by'),
                               style: const TextStyle(
@@ -537,7 +575,7 @@ class _HomePageState extends State<HomePage> {
           if (_news != null)
             for (final n in _news!.take(3))
               Card(
-                color: Colors.white,
+                color: context.cSurface,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -568,7 +606,7 @@ class _HomePageState extends State<HomePage> {
                     builder: (_) => BroadcastsPage(broadcasts: _tv)))),
             for (final b in _tv.take(3))
               Card(
-                color: Colors.white,
+                color: context.cSurface,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -595,20 +633,20 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: kGreenLight,
+                color: context.cGreenTint,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.hiking, color: kGreenDark),
+                  Icon(Icons.hiking, color: context.cTitle),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(t('levadas_teaser'),
-                            style: const TextStyle(
-                                fontSize: 11, color: kGreenDark)),
+                            style: TextStyle(
+                                fontSize: 11, color: context.cTitle)),
                         Text(t('levadas_hook'),
                             style: const TextStyle(
                                 fontSize: 13,
@@ -616,7 +654,7 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: kGreenDark),
+                  Icon(Icons.chevron_right, color: context.cTitle),
                 ],
               ),
             ),
@@ -627,7 +665,7 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: kTerracottaLight,
+                color: context.cTerraTint,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -718,7 +756,7 @@ class _EventTile extends StatelessWidget {
       trailing = const Icon(Icons.chevron_right, color: Colors.grey);
     }
     return Card(
-      color: Colors.white,
+      color: context.cSurface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -848,10 +886,10 @@ class _EventsPageState extends State<EventsPage> {
           child: Row(
             children: [
               Text(t('events'),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      color: kGreenDark)),
+                      color: context.cTitle)),
               const Spacer(),
               if (_day != null)
                 ActionChip(
@@ -865,14 +903,14 @@ class _EventsPageState extends State<EventsPage> {
                 builder: (_, __, ___) => IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: Icon(_favOnly ? Icons.star : Icons.star_border,
-                      color: _favOnly ? kTerracotta : kGreenDark),
+                      color: _favOnly ? kTerracotta : context.cTitle),
                   onPressed: () => setState(() => _favOnly = !_favOnly),
                 ),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 icon: Icon(_searching ? Icons.search_off : Icons.search,
-                    color: kGreenDark),
+                    color: context.cTitle),
                 onPressed: () => setState(() {
                   _searching = !_searching;
                   if (!_searching) _query = '';
@@ -932,7 +970,7 @@ class _EventsPageState extends State<EventsPage> {
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color:
-                                      sel ? Colors.white : kGreenDark)),
+                                      sel ? Colors.white : context.cTitle)),
                           Container(
                             width: 5,
                             height: 5,
@@ -976,7 +1014,7 @@ class _EventsPageState extends State<EventsPage> {
                     labelStyle: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: _filter == cat.$1 ? kGreenLight : kGreenDark),
+                        color: _filter == cat.$1 ? kGreenLight : context.cTitle),
                     onSelected: (_) => setState(() => _filter = cat.$1),
                   ),
                 ),
@@ -1059,7 +1097,7 @@ class _EventsPageState extends State<EventsPage> {
                   }
                   final w = _watch[i - watchStart - 1];
                   return Card(
-                    color: kTerracottaLight,
+                    color: context.cTerraTint,
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 8),
                     shape: RoundedRectangleBorder(
@@ -1190,10 +1228,10 @@ class _LevadasPageState extends State<LevadasPage> {
                 child: Row(
                   children: [
                     Text(t('levadas'),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
-                            color: kGreenDark)),
+                            color: context.cTitle)),
                     const Spacer(),
                     ValueListenableBuilder(
                       valueListenable: favorites,
@@ -1201,7 +1239,7 @@ class _LevadasPageState extends State<LevadasPage> {
                         visualDensity: VisualDensity.compact,
                         icon: Icon(
                             _favOnly ? Icons.star : Icons.star_border,
-                            color: _favOnly ? kTerracotta : kGreenDark),
+                            color: _favOnly ? kTerracotta : context.cTitle),
                         onPressed: () =>
                             setState(() => _favOnly = !_favOnly),
                       ),
@@ -1210,7 +1248,7 @@ class _LevadasPageState extends State<LevadasPage> {
                       visualDensity: VisualDensity.compact,
                       icon: Icon(
                           _searching ? Icons.search_off : Icons.search,
-                          color: kGreenDark),
+                          color: context.cTitle),
                       onPressed: () => setState(() {
                         _searching = !_searching;
                         if (!_searching) _query = '';
@@ -1258,7 +1296,7 @@ class _LevadasPageState extends State<LevadasPage> {
         final l = shown[i - 1];
         final open = l.status == 'open';
         return Card(
-          color: Colors.white,
+          color: context.cSurface,
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 8),
           shape: RoundedRectangleBorder(
@@ -1279,7 +1317,7 @@ class _LevadasPageState extends State<LevadasPage> {
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: open ? kGreenDark : Colors.grey)),
+                        color: open ? context.cTitle : Colors.grey)),
               ),
             ),
             title: Text(l.name,
@@ -1343,10 +1381,10 @@ class _MapPageState extends State<MapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('${l.code} · ${l.name}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: kGreenDark)),
+                    color: context.cTitle)),
             const SizedBox(height: 10),
             Row(children: [
               const Icon(Icons.route, size: 16, color: kGreen),
@@ -1480,10 +1518,10 @@ class _NewsPageState extends State<NewsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(t('news'),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
-                        color: kGreenDark)),
+                        color: context.cTitle)),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 6,
@@ -1510,7 +1548,7 @@ class _NewsPageState extends State<NewsPage> {
                                   fontWeight: FontWeight.w600,
                                   color: _lang == lg
                                       ? Colors.white
-                                      : kGreenDark)),
+                                      : context.cTitle)),
                         ),
                       ),
                   ],
@@ -1522,7 +1560,7 @@ class _NewsPageState extends State<NewsPage> {
           final n = _news![i - 1];
           final translated = n.lang != _lang;
           return Card(
-            color: Colors.white,
+            color: context.cSurface,
             elevation: 0,
             margin: const EdgeInsets.only(bottom: 8),
             clipBehavior: Clip.antiAlias,
@@ -1576,17 +1614,17 @@ class _NewsPageState extends State<NewsPage> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: kGreenLight,
+                          color: context.cGreenTint,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                             translated
                                 ? '${kNewsLangLabels[_lang]} · auto'
                                 : n.lang.toUpperCase(),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
-                                color: kGreenDark)),
+                                color: context.cTitle)),
                       ),
                     ],
                   ),
@@ -1630,7 +1668,7 @@ class BroadcastsPage extends StatelessWidget {
                           color: kTerracotta)),
                 ),
               Card(
-                color: Colors.white,
+                color: context.cSurface,
                 elevation: 0,
                 margin: const EdgeInsets.only(bottom: 8),
                 shape: RoundedRectangleBorder(
@@ -1707,10 +1745,10 @@ class RootsPage extends StatelessWidget {
         const SizedBox(height: 20),
 
         Text(t('timeline'),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: kGreenDark)),
+                color: context.cTitle)),
         Text(t('timeline_sub'),
             style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 12),
@@ -1719,7 +1757,7 @@ class RootsPage extends StatelessWidget {
           Container(
             margin: const EdgeInsets.only(bottom: 18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.cSurface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.grey.shade300, width: 0.5),
             ),
@@ -1737,7 +1775,7 @@ class RootsPage extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: kTerracottaLight,
+                          color: context.cTerraTint,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(e.years,
@@ -1748,10 +1786,10 @@ class RootsPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(pt && e.titlePt.isNotEmpty ? e.titlePt : e.titleEn,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
-                              color: kGreenDark)),
+                              color: context.cTitle)),
                       const SizedBox(height: 8),
                       Text(pt && e.bodyPt.isNotEmpty ? e.bodyPt : e.bodyEn,
                           style: const TextStyle(
@@ -1767,10 +1805,10 @@ class RootsPage extends StatelessWidget {
         Row(children: [
           const Text('🖼  ', style: TextStyle(fontSize: 16)),
           Text(t('album'),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: kGreenDark)),
+                  color: context.cTitle)),
         ]),
         Text(t('album_sub'),
             style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1778,7 +1816,7 @@ class RootsPage extends StatelessWidget {
 
         for (final it in rootsItems)
           Card(
-            color: Colors.white,
+            color: context.cSurface,
             elevation: 0,
             margin: const EdgeInsets.only(bottom: 14),
             clipBehavior: Clip.antiAlias,
