@@ -1,0 +1,1691 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'eras_data.dart';
+import 'roots_data.dart';
+
+const kGreen = Color(0xFF0F6E56);
+const kGreenDark = Color(0xFF085041);
+const kGreenLight = Color(0xFFE1F5EE);
+const kTerracotta = Color(0xFF993C1D);
+const kTerracottaLight = Color(0xFFFAECE7);
+const kCream = Color(0xFFFAF8F2);
+
+final locale = ValueNotifier<String>('en');
+
+const _tr = {
+  'en': {
+    'home': 'Home',
+    'events': 'Events',
+    'map': 'Map',
+    'levadas': 'Levadas',
+    'roots': 'Roots',
+    'next_up': 'Next up',
+    'coming_up': 'Coming up',
+    'news': 'News',
+    'all_news': 'All news',
+    'roots_teaser': 'Roots · the island\'s memory',
+    'roots_hook': 'Old Madeira in 19 pictures — levadas, sugar, wine sledges',
+    'levadas_teaser': 'Levadas & trails',
+    'levadas_hook': '44 official PR routes with status and elevation',
+    'upcoming': 'upcoming',
+    'on': 'on',
+    'all_dates': 'All dates',
+    'loading': 'Loading…',
+    'open': 'open',
+    'closed': 'closed',
+    'fee': 'Fee',
+    'website': 'Website',
+    'telegram': 'Telegram bot',
+    'language': 'Português',
+    'roots_sub': "The island's memory, one place at a time",
+    'view_all': 'View all',
+    'roots_h1': 'How Madeira learned to move',
+    'timeline': 'The timeline',
+    'timeline_sub': 'Six hundred years in six chapters — worth a slow scroll.',
+    'album': 'The Album',
+    'album_sub': 'Nineteen pictures of old Madeira.',
+    'pessoa': 'Tudo vale a pena se a alma não é pequena.',
+    'pessoa_by': '— Fernando Pessoa',
+    'stat_routes': 'routes',
+    'stat_km': 'km trails',
+    'stat_climb': 'm climb',
+    'stat_peak': 'm peak',
+    'watchlist': 'Watchlist',
+    'watchlist_sub': 'Worth tracking — dates not yet confirmed.',
+    'on_tv': 'On TV',
+    'broadcasts': 'Broadcasts',
+    'view_all_tv': 'All broadcasts',
+  },
+  'pt': {
+    'home': 'Início',
+    'events': 'Eventos',
+    'map': 'Mapa',
+    'levadas': 'Levadas',
+    'roots': 'Raízes',
+    'next_up': 'A seguir',
+    'coming_up': 'Próximos',
+    'news': 'Notícias',
+    'all_news': 'Todas as notícias',
+    'roots_teaser': 'Raízes · a memória da ilha',
+    'roots_hook': 'A Madeira antiga em 19 imagens — levadas, açúcar, corsas',
+    'levadas_teaser': 'Levadas e veredas',
+    'levadas_hook': '44 percursos PR oficiais com estado e desnível',
+    'upcoming': 'a seguir',
+    'on': 'em',
+    'all_dates': 'Todas as datas',
+    'loading': 'A carregar…',
+    'open': 'aberto',
+    'closed': 'fechado',
+    'fee': 'Taxa',
+    'website': 'Site',
+    'telegram': 'Bot do Telegram',
+    'language': 'English',
+    'roots_sub': 'A memória da ilha, um lugar de cada vez',
+    'view_all': 'Ver tudo',
+    'roots_h1': 'Como a Madeira aprendeu a mover-se',
+    'timeline': 'A linha do tempo',
+    'timeline_sub': 'Seiscentos anos em seis capítulos — vale a pena descer devagar.',
+    'album': 'O Álbum',
+    'album_sub': 'Dezanove imagens da Madeira antiga.',
+    'pessoa': 'Tudo vale a pena se a alma não é pequena.',
+    'pessoa_by': '— Fernando Pessoa',
+    'stat_routes': 'percursos',
+    'stat_km': 'km de trilhos',
+    'stat_climb': 'm de subida',
+    'stat_peak': 'm de pico',
+    'watchlist': 'A acompanhar',
+    'watchlist_sub': 'Vale a pena seguir — datas por confirmar.',
+    'on_tv': 'Na TV',
+    'broadcasts': 'Transmissões',
+    'view_all_tv': 'Todas as transmissões',
+  },
+};
+
+String t(String k) => _tr[locale.value]![k] ?? k;
+
+Future<void> openUrl(String url) async {
+  if (url.isEmpty) return;
+  final uri = Uri.tryParse(url);
+  if (uri != null) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+void main() => runApp(const AtivaApp());
+
+class AtivaApp extends StatelessWidget {
+  const AtivaApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: locale,
+      builder: (_, __, ___) => MaterialApp(
+        title: 'Madeira Ativa',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: kCream,
+          colorScheme: ColorScheme.fromSeed(seedColor: kGreen),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: kCream,
+            foregroundColor: kGreenDark,
+            elevation: 0,
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: Colors.white,
+            indicatorColor: kGreenLight,
+          ),
+        ),
+        home: const HomeShell(),
+      ),
+    );
+  }
+}
+
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  int _tab = 0;
+
+  void _goTo(int i) => setState(() => _tab = i);
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      HomePage(onNavigate: _goTo),
+      const EventsPage(),
+      const MapPage(),
+      const LevadasPage(),
+      const NewsPage(),
+      const RootsPage(),
+    ];
+    return Scaffold(
+      appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Image.asset('assets/icon.png', width: 30, height: 30),
+        ),
+        title: const Text('Madeira Ativa',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                locale.value = locale.value == 'en' ? 'pt' : 'en',
+            child: Text(locale.value.toUpperCase(),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, color: kGreen)),
+          ),
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+            ),
+          ),
+        ],
+      ),
+      endDrawer: Drawer(
+        backgroundColor: kCream,
+        child: ListView(
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: kGreen),
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Text('Madeira Ativa',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: kGreenLight)),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.public, color: kGreen),
+              title: Text(t('website')),
+              onTap: () => openUrl('https://shpara.com/madeira/'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.send, color: kGreen),
+              title: Text(t('telegram')),
+              onTap: () => openUrl('https://t.me/madeira_ebot'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.translate, color: kTerracotta),
+              title: Text(t('language')),
+              onTap: () {
+                locale.value = locale.value == 'en' ? 'pt' : 'en';
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(child: pages[_tab]),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: _goTo,
+        destinations: [
+          NavigationDestination(
+              icon: const Icon(Icons.home_outlined), label: t('home')),
+          NavigationDestination(
+              icon: const Icon(Icons.calendar_month_outlined),
+              label: t('events')),
+          NavigationDestination(
+              icon: const Icon(Icons.map_outlined), label: t('map')),
+          NavigationDestination(
+              icon: const Icon(Icons.hiking), label: t('levadas')),
+          NavigationDestination(
+              icon: const Icon(Icons.article_outlined), label: t('news')),
+          NavigationDestination(
+              icon: const Icon(Icons.menu_book_outlined),
+              label: t('roots')),
+        ],
+      ),
+    );
+  }
+}
+
+class AtivaEvent {
+  final String name;
+  final String date;
+  final String location;
+  final String type;
+  final String mode;
+  final String url;
+
+  AtivaEvent.fromJson(Map<String, dynamic> j)
+      : name = j['name'] ?? '',
+        date = j['date'] ?? '',
+        location = j['location'] ?? '',
+        type = j['event_type'] ?? 'other',
+        mode = j['mode'] ?? '',
+        url = j['url'] ?? '';
+}
+
+Future<List<AtivaEvent>> fetchEvents() async {
+  final r = await http
+      .get(Uri.parse('https://shpara.com/madeira/events.json'))
+      .timeout(const Duration(seconds: 15));
+  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final today = DateTime.now().toIso8601String().substring(0, 10);
+  return (data['events'] as List)
+      .map((e) => AtivaEvent.fromJson(e))
+      .where((e) => e.date.compareTo(today) >= 0)
+      .toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+}
+
+class NewsItem {
+  final String title;
+  final String snippet;
+  final String link;
+  final String date;
+  final String lang;
+  final Map<String, String> titles;
+  final Map<String, String> snippets;
+
+  NewsItem.fromJson(Map<String, dynamic> j)
+      : title = j['title'] ?? '',
+        snippet = j['snippet'] ?? '',
+        link = j['link'] ?? '',
+        date = j['date'] ?? '',
+        lang = (j['lang'] ?? 'en').toString().toLowerCase(),
+        titles = Map<String, String>.from(
+            (j['titles'] ?? {}).map((k, v) => MapEntry(k, v.toString()))),
+        snippets = Map<String, String>.from(
+            (j['snippets'] ?? {}).map((k, v) => MapEntry(k, v.toString())));
+
+  String titleFor(String lg) =>
+      lg == lang ? title : (titles[lg]?.isNotEmpty == true ? titles[lg]! : title);
+
+  String snippetFor(String lg) => lg == lang
+      ? snippet
+      : (snippets[lg]?.isNotEmpty == true ? snippets[lg]! : snippet);
+}
+
+class Broadcast {
+  final String date, time, name, comp, channel;
+  Broadcast.fromJson(Map<String, dynamic> j)
+      : date = j['date'] ?? '',
+        time = j['time'] ?? '',
+        name = j['name'] ?? '',
+        comp = j['comp'] ?? '',
+        channel = j['channel'] ?? '';
+}
+
+Future<List<Broadcast>> fetchBroadcasts() async {
+  final r = await http
+      .get(Uri.parse('https://shpara.com/madeira/tv_broadcasts.json'))
+      .timeout(const Duration(seconds: 15));
+  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final list = (data['events'] ?? data['broadcasts'] ?? []) as List;
+  final today = DateTime.now().toIso8601String().substring(0, 10);
+  return list
+      .map((j) => Broadcast.fromJson(j))
+      .where((b) => b.date.compareTo(today) >= 0)
+      .toList()
+    ..sort((a, b) => (a.date + a.time).compareTo(b.date + b.time));
+}
+
+class WatchItem {
+  final String name, mode, expected, location, url;
+  WatchItem.fromJson(Map<String, dynamic> j)
+      : name = j['name'] ?? '',
+        mode = j['mode'] ?? '',
+        expected = j['expected'] ?? '',
+        location = j['location'] ?? '',
+        url = j['url'] ?? '';
+}
+
+Future<List<WatchItem>> fetchWatchlist() async {
+  final r = await http
+      .get(Uri.parse('https://shpara.com/madeira/watchlist.json'))
+      .timeout(const Duration(seconds: 15));
+  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final list =
+      (data is List ? data : data['watchlist'] ?? data['items'] ?? []) as List;
+  return list.map((j) => WatchItem.fromJson(j)).toList();
+}
+
+const kNewsLangs = ['en', 'pt', 'de', 'pl', 'uk', 'ru'];
+const kNewsLangLabels = {
+  'en': 'EN',
+  'pt': 'PT',
+  'de': 'DE',
+  'pl': 'PL',
+  'uk': 'UK',
+  'ru': 'RU',
+};
+
+const _typeIcons = {
+  'running': Icons.directions_run,
+  'trail': Icons.terrain,
+  'cycling': Icons.directions_bike,
+  'swimming': Icons.pool,
+  'triathlon': Icons.timer,
+  'orienteering': Icons.explore,
+  'festival': Icons.celebration,
+};
+
+class HomePage extends StatefulWidget {
+  final void Function(int) onNavigate;
+  const HomePage({super.key, required this.onNavigate});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<AtivaEvent>? _events;
+  List<NewsItem>? _news;
+  List<Broadcast> _tv = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final ev = await fetchEvents();
+      if (mounted) setState(() => _events = ev);
+    } catch (_) {
+      if (mounted) setState(() => _events = []);
+    }
+    try {
+      final tv = await fetchBroadcasts();
+      if (mounted) setState(() => _tv = tv);
+    } catch (_) {}
+    try {
+      final r = await http
+          .get(Uri.parse('https://shpara.com/madeira/news_feed.json'))
+          .timeout(const Duration(seconds: 15));
+      final data = jsonDecode(utf8.decode(r.bodyBytes));
+      final list =
+          (data is List ? data : data['items'] ?? data['news'] ?? []) as List;
+      if (mounted) {
+        setState(
+            () => _news = list.map((j) => NewsItem.fromJson(j)).toList());
+      }
+    } catch (_) {
+      if (mounted) setState(() => _news = []);
+    }
+  }
+
+  List<AtivaEvent> _mixed() {
+    if (_events == null) return [];
+    final seen = <String>{};
+    final mix = <AtivaEvent>[];
+    for (final e in _events!) {
+      if (seen.add(e.type)) mix.add(e);
+      if (mix.length == 5) return mix;
+    }
+    for (final e in _events!) {
+      if (!mix.contains(e)) mix.add(e);
+      if (mix.length == 5) break;
+    }
+    return mix;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hero = _events?.isNotEmpty == true ? _events!.first : null;
+    final mix = _mixed().skip(1).toList();
+
+    return RefreshIndicator(
+      color: kGreen,
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: kTerracottaLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(width: 3, color: kTerracotta),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t('pessoa'),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  height: 1.4,
+                                  fontStyle: FontStyle.italic,
+                                  color: kGreenDark)),
+                          const SizedBox(height: 4),
+                          Text(t('pessoa_by'),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: kTerracotta)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => hero != null ? openUrl(hero.url) : null,
+            child: Container(
+              height: 120,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: kGreen,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                      hero == null
+                          ? t('next_up')
+                          : '${t('next_up')} · ${hero.date} · ${hero.location}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF9FE1CB))),
+                  Text(hero?.name ?? t('loading'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: kGreenLight)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _SectionHeader(
+              title: t('coming_up'),
+              onMore: () => widget.onNavigate(1)),
+          if (_events == null)
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(color: kGreen)))
+          else
+            for (final e in mix)
+              _EventTile(
+                icon: _typeIcons[e.type] ?? Icons.event,
+                title: e.name,
+                subtitle: '${e.date} · ${e.location} · ${e.type}',
+                onTap: () => openUrl(e.url),
+              ),
+          const SizedBox(height: 20),
+          _SectionHeader(
+              title: t('news'),
+              onMore: () => widget.onNavigate(4)),
+          if (_news != null)
+            for (final n in _news!.take(3))
+              Card(
+                color: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side:
+                      BorderSide(color: Colors.grey.shade300, width: 0.5),
+                ),
+                child: ListTile(
+                  dense: true,
+                  leading:
+                      const Icon(Icons.article_outlined, color: kGreen),
+                  title: Text(n.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle:
+                      Text(n.date, style: const TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.open_in_new,
+                      size: 14, color: Colors.grey),
+                  onTap: () => openUrl(n.link),
+                ),
+              ),
+          if (_tv.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _SectionHeader(
+                title: t('on_tv'),
+                onMore: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => BroadcastsPage(broadcasts: _tv)))),
+            for (final b in _tv.take(3))
+              Card(
+                color: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+                ),
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.live_tv, color: kTerracotta),
+                  title: Text(b.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: Text('${b.date} ${b.time} · ${b.channel}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11)),
+                ),
+              ),
+          ],
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: () => widget.onNavigate(3),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kGreenLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.hiking, color: kGreenDark),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t('levadas_teaser'),
+                            style: const TextStyle(
+                                fontSize: 11, color: kGreenDark)),
+                        Text(t('levadas_hook'),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: kGreenDark),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => widget.onNavigate(5),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kTerracottaLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.menu_book, color: kTerracotta),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t('roots_teaser'),
+                            style: const TextStyle(
+                                fontSize: 11, color: kTerracotta)),
+                        Text(t('roots_hook'),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: kTerracotta),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final VoidCallback onMore;
+  const _SectionHeader({required this.title, required this.onMore});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          GestureDetector(
+            onTap: onMore,
+            child: Text(t('view_all'),
+                style: const TextStyle(fontSize: 12, color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EventTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  const _EventTile(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: kGreen),
+        title: Text(title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        trailing: onTap == null
+            ? null
+            : const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class EventsPage extends StatefulWidget {
+  const EventsPage({super.key});
+
+  @override
+  State<EventsPage> createState() => _EventsPageState();
+}
+
+class _EventsPageState extends State<EventsPage> {
+  List<AtivaEvent>? _events;
+  List<WatchItem> _watch = [];
+  String? _error;
+  String _filter = 'all';
+  String? _day;
+
+  // Event categories mirror the Madeira site's mode filter (grouped by `mode`).
+  static const _modeCats = <(String, String, String)>[
+    ('all', '', 'All'),
+    ('trail', '🏃', 'Trail'),
+    ('road', '🛣', 'Road'),
+    ('orienteering', '🧭', 'Orient'),
+    ('cycling', '🚴', 'Bike'),
+    ('kids', '👶', 'Kids'),
+    ('pro', '🏆', 'Pro'),
+    ('swim', '🏊', 'Swim'),
+    ('festivals', '🎪', 'Fest'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await fetchEvents();
+      setState(() => _events = list);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+    try {
+      final w = await fetchWatchlist();
+      if (mounted) setState(() => _watch = w);
+    } catch (_) {}
+  }
+
+  static const _wd = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+  // Same heuristic as the site: orientation events live under mode 'trail'.
+  bool _isOrientacao(AtivaEvent e) =>
+      e.type == 'orienteering' ||
+      e.name.startsWith('Orientação:') ||
+      e.url.contains('aoram.pt');
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+          child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text('Couldn\'t load events.\n$_error',
+            textAlign: TextAlign.center),
+      ));
+    }
+    if (_events == null) {
+      return const Center(child: CircularProgressIndicator(color: kGreen));
+    }
+    // Category filter mirrors the Madeira site exactly: orienteering is a
+    // subset of mode 'trail' (by the Orientação heuristic), trail excludes it,
+    // swim also picks up swimming_kids.
+    var shown = switch (_filter) {
+      'all' => _events!,
+      'orienteering' =>
+        _events!.where((e) => e.mode == 'trail' && _isOrientacao(e)).toList(),
+      'trail' =>
+        _events!.where((e) => e.mode == 'trail' && !_isOrientacao(e)).toList(),
+      'swim' => _events!
+          .where((e) => e.mode == 'swim' || e.type == 'swimming_kids')
+          .toList(),
+      _ => _events!.where((e) => e.mode == _filter).toList(),
+    };
+    if (_day != null) {
+      shown = shown.where((e) => e.date == _day).toList();
+    }
+    final eventDays = _events!.map((e) => e.date).toSet();
+    final today = DateTime.now();
+    final days = List.generate(30, (i) => today.add(Duration(days: i)));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              Text(t('events'),
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: kGreenDark)),
+              const Spacer(),
+              if (_day != null)
+                ActionChip(
+                  label: Text(t('all_dates'),
+                      style: const TextStyle(fontSize: 12)),
+                  avatar: const Icon(Icons.close, size: 14),
+                  onPressed: () => setState(() => _day = null),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 62,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              for (final d in days)
+                Builder(builder: (_) {
+                  final iso = d.toIso8601String().substring(0, 10);
+                  final sel = _day == iso;
+                  final has = eventDays.contains(iso);
+                  return GestureDetector(
+                    onTap: () => setState(() => _day = sel ? null : iso),
+                    child: Container(
+                      width: 46,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: sel ? kGreen : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_wd[d.weekday - 1],
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: sel
+                                      ? kGreenLight
+                                      : (d.weekday >= 6
+                                          ? kTerracotta
+                                          : Colors.grey))),
+                          Text('${d.day}',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      sel ? Colors.white : kGreenDark)),
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: has
+                                  ? (sel ? Colors.white : kGreen)
+                                  : Colors.transparent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              for (final cat in _modeCats)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: FilterChip(
+                    showCheckmark: false,
+                    label: Text(cat.$1 == 'all'
+                        ? cat.$3
+                        : '${cat.$2} ${cat.$3}'),
+                    selected: _filter == cat.$1,
+                    selectedColor: kGreen,
+                    backgroundColor: Colors.white,
+                    shape: StadiumBorder(
+                        side: BorderSide(
+                            color: _filter == cat.$1
+                                ? kGreen
+                                : Colors.grey.shade300)),
+                    labelStyle: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _filter == cat.$1 ? kGreenLight : kGreenDark),
+                    onSelected: (_) => setState(() => _filter = cat.$1),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Text(
+              _day == null
+                  ? '${shown.length} ${t('upcoming')}'
+                  : '${shown.length} ${t('on')} $_day',
+              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            color: kGreen,
+            onRefresh: _load,
+            child: Builder(builder: (_) {
+              final showWatch = _day == null && _watch.isNotEmpty;
+              final watchStart = shown.length;
+              return ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount:
+                    shown.length + (showWatch ? 1 + _watch.length : 0),
+                itemBuilder: (_, i) {
+                  if (i < shown.length) {
+                    final e = shown[i];
+                    final showDate = i == 0 || shown[i - 1].date != e.date;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showDate)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
+                            child: Text(e.date,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: kTerracotta)),
+                          ),
+                        _EventTile(
+                          icon: _typeIcons[e.type] ?? Icons.event,
+                          title: e.name,
+                          subtitle: e.location.isEmpty
+                              ? e.type
+                              : '${e.location} · ${e.type}',
+                          onTap:
+                              e.url.isEmpty ? null : () => openUrl(e.url),
+                        ),
+                      ],
+                    );
+                  }
+                  if (i == watchStart) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 20, 6, 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            const Icon(Icons.visibility_outlined,
+                                size: 18, color: kTerracotta),
+                            const SizedBox(width: 6),
+                            Text(t('watchlist'),
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: kTerracotta)),
+                          ]),
+                          Text(t('watchlist_sub'),
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    );
+                  }
+                  final w = _watch[i - watchStart - 1];
+                  return Card(
+                    color: kTerracottaLight,
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: Icon(_typeIcons[w.mode] ?? Icons.event,
+                          color: kTerracotta),
+                      title: Text(w.name,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                          w.expected.isEmpty
+                              ? w.location
+                              : '${w.expected} · ${w.location}',
+                          style: const TextStyle(fontSize: 12)),
+                      trailing: w.url.isEmpty
+                          ? null
+                          : const Icon(Icons.open_in_new,
+                              size: 14, color: Colors.grey),
+                      onTap: w.url.isEmpty ? null : () => openUrl(w.url),
+                    ),
+                  );
+                },
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class Levada {
+  final String code;
+  final String name;
+  final String status;
+  final String distance;
+  final String ascent;
+  final String fee;
+  final String urlEn;
+  final String urlPt;
+  final LatLng? center;
+
+  Levada.fromJson(Map<String, dynamic> j)
+      : code = j['code'] ?? '',
+        name = j['name'] ?? '',
+        status = j['status'] ?? '',
+        distance = j['distance_km']?.toString() ?? '?',
+        ascent = j['ascent_m']?.toString() ?? '?',
+        fee = j['charge']?.toString() ?? '',
+        urlEn = j['url_en'] ?? '',
+        urlPt = j['url_pt'] ?? '',
+        center = j['center'] == null
+            ? null
+            : LatLng((j['center'][0] as num).toDouble(),
+                (j['center'][1] as num).toDouble());
+}
+
+List<Levada>? _levadaCache;
+
+Future<List<Levada>> fetchLevadas() async {
+  if (_levadaCache != null) return _levadaCache!;
+  final r = await http
+      .get(Uri.parse('https://shpara.com/madeira/levadas.json'))
+      .timeout(const Duration(seconds: 15));
+  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  _levadaCache = (data['levadas'] as List)
+      .map((j) => Levada.fromJson(j))
+      .toList();
+  return _levadaCache!;
+}
+
+class LevadasPage extends StatefulWidget {
+  const LevadasPage({super.key});
+
+  @override
+  State<LevadasPage> createState() => _LevadasPageState();
+}
+
+class _LevadasPageState extends State<LevadasPage> {
+  List<Levada>? _levadas;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchLevadas().then((l) {
+      if (mounted) setState(() => _levadas = l);
+    }).catchError((_) {
+      if (mounted) setState(() => _levadas = []);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_levadas == null) {
+      return const Center(child: CircularProgressIndicator(color: kGreen));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _levadas!.length + 1,
+      itemBuilder: (_, i) {
+        if (i == 0) {
+          double km = 0, climb = 0;
+          for (final l in _levadas!) {
+            km += double.tryParse(l.distance) ?? 0;
+            climb += double.tryParse(l.ascent) ?? 0;
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+                child: Text(t('levadas'),
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: kGreenDark)),
+              ),
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: kGreen,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _stat('${_levadas!.length}', t('stat_routes')),
+                    _stat(km.round().toString(), t('stat_km')),
+                    _stat('${(climb / 1000).toStringAsFixed(0)}k',
+                        t('stat_climb')),
+                    _stat('1848', t('stat_peak')),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+        final l = _levadas![i - 1];
+        final open = l.status == 'open';
+        return Card(
+          color: Colors.white,
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+          ),
+          child: ListTile(
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: open ? kGreenLight : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(l.code.replaceAll(' ', '\n'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: open ? kGreenDark : Colors.grey)),
+              ),
+            ),
+            title: Text(l.name,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
+            subtitle: Text(
+                '${l.distance} km · ↑${l.ascent} m · ${t(open ? 'open' : 'closed')}'
+                '${l.fee.isNotEmpty && l.fee != 'None' ? ' · ${t('fee')} ${l.fee}' : ''}',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: open ? Colors.grey.shade700 : Colors.red)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+            onTap: () =>
+                openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class MapPage extends StatefulWidget {
+  const MapPage({super.key});
+
+  @override
+  State<MapPage> createState() => _MapPageState();
+}
+
+class _MapPageState extends State<MapPage> {
+  List<Levada>? _levadas;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchLevadas().then((l) {
+      if (mounted) setState(() => _levadas = l);
+    }).catchError((_) {
+      if (mounted) setState(() => _levadas = []);
+    });
+  }
+
+  void _showTrail(Levada l) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kCream,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${l.code} · ${l.name}',
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: kGreenDark)),
+            const SizedBox(height: 10),
+            Row(children: [
+              const Icon(Icons.route, size: 16, color: kGreen),
+              Text(' ${l.distance} km   '),
+              const Icon(Icons.trending_up, size: 16, color: kGreen),
+              Text(' ↑${l.ascent} m   '),
+              Icon(l.status == 'open' ? Icons.check_circle : Icons.cancel,
+                  size: 16,
+                  color: l.status == 'open' ? kGreen : Colors.red),
+              Text(' ${t(l.status == 'open' ? 'open' : 'closed')}'),
+            ]),
+            if (l.fee.isNotEmpty && l.fee != 'None')
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${t('fee')}: ${l.fee}',
+                    style:
+                        const TextStyle(fontSize: 13, color: kTerracotta)),
+              ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () =>
+                  openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('visitmadeira.com'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_levadas == null) {
+      return const Center(child: CircularProgressIndicator(color: kGreen));
+    }
+    return FlutterMap(
+      options: const MapOptions(
+        initialCenter: LatLng(32.75, -16.97),
+        initialZoom: 10,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.shpara.ativa',
+        ),
+        MarkerLayer(
+          markers: [
+            for (final l in _levadas!)
+              if (l.center != null)
+                Marker(
+                  point: l.center!,
+                  width: 34,
+                  height: 34,
+                  child: GestureDetector(
+                    onTap: () => _showTrail(l),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: l.status == 'open' ? kGreen : Colors.grey,
+                        shape: BoxShape.circle,
+                        border:
+                            Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.directions_walk,
+                          size: 18, color: Colors.white),
+                    ),
+                  ),
+                ),
+          ],
+        ),
+        const Align(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: EdgeInsets.all(4),
+            child: Text('© OpenStreetMap',
+                style: TextStyle(fontSize: 10, color: Colors.black54)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class NewsPage extends StatefulWidget {
+  const NewsPage({super.key});
+
+  @override
+  State<NewsPage> createState() => _NewsPageState();
+}
+
+class _NewsPageState extends State<NewsPage> {
+  List<NewsItem>? _news;
+  late String _lang;
+
+  @override
+  void initState() {
+    super.initState();
+    _lang = locale.value == 'pt' ? 'pt' : 'en';
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final r = await http
+          .get(Uri.parse('https://shpara.com/madeira/news_feed.json'))
+          .timeout(const Duration(seconds: 15));
+      final data = jsonDecode(utf8.decode(r.bodyBytes));
+      final list =
+          (data is List ? data : data['items'] ?? data['news'] ?? []) as List;
+      if (mounted) {
+        setState(() => _news = list.map((j) => NewsItem.fromJson(j)).toList());
+      }
+    } catch (_) {
+      if (mounted) setState(() => _news = []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_news == null) {
+      return const Center(child: CircularProgressIndicator(color: kGreen));
+    }
+    return RefreshIndicator(
+      color: kGreen,
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _news!.length + 1,
+        itemBuilder: (_, i) {
+          if (i == 0) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t('news'),
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: kGreenDark)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final lg in kNewsLangs)
+                      GestureDetector(
+                        onTap: () => setState(() => _lang = lg),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color:
+                                _lang == lg ? kGreen : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: _lang == lg
+                                    ? kGreen
+                                    : Colors.grey.shade400,
+                                width: 0.5),
+                          ),
+                          child: Text(kNewsLangLabels[lg]!,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _lang == lg
+                                      ? Colors.white
+                                      : kGreenDark)),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+            );
+          }
+          final n = _news![i - 1];
+          final translated = n.lang != _lang;
+          return Card(
+            color: Colors.white,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 8),
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+            ),
+            child: InkWell(
+              onTap: () => _open(n),
+              child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2, right: 8),
+                        child: Icon(Icons.article_outlined,
+                            size: 18, color: kGreen),
+                      ),
+                      Expanded(
+                        child: Text(n.titleFor(_lang),
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500)),
+                      ),
+                      const Icon(Icons.open_in_new,
+                          size: 14, color: Colors.grey),
+                    ],
+                  ),
+                  if (n.snippetFor(_lang).isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(n.snippetFor(_lang),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Colors.grey.shade700)),
+                  ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(n.date,
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: kGreenLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                            translated
+                                ? '${kNewsLangLabels[_lang]} · auto'
+                                : n.lang.toUpperCase(),
+                            style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: kGreenDark)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _open(NewsItem n) => openUrl(n.link);
+}
+
+class BroadcastsPage extends StatelessWidget {
+  final List<Broadcast> broadcasts;
+  const BroadcastsPage({super.key, required this.broadcasts});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(t('broadcasts'))),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: broadcasts.length,
+        itemBuilder: (_, i) {
+          final b = broadcasts[i];
+          final showDate = i == 0 || broadcasts[i - 1].date != b.date;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showDate)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
+                  child: Text(b.date,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kTerracotta)),
+                ),
+              Card(
+                color: Colors.white,
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.live_tv, color: kTerracotta),
+                  title: Text(b.name,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: Text('${b.time} · ${b.comp} · ${b.channel}',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+Widget _stat(String value, String label) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(value,
+          style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.white)),
+      Text(label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF9FE1CB))),
+    ],
+  );
+}
+
+Widget _histImage(String path, {double height = 190}) {
+  return Image.network(
+    'https://shpara.com/madeira/$path',
+    height: height,
+    width: double.infinity,
+    fit: BoxFit.cover,
+    loadingBuilder: (_, child, p) => p == null
+        ? child
+        : Container(
+            height: height,
+            color: kTerracottaLight,
+            child: const Center(
+                child: CircularProgressIndicator(color: kTerracotta))),
+    errorBuilder: (_, __, ___) =>
+        Container(height: 60, color: kTerracottaLight),
+  );
+}
+
+class RootsPage extends StatelessWidget {
+  const RootsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final pt = locale.value == 'pt';
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(t('roots_h1'),
+            style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: kTerracotta)),
+        const SizedBox(height: 4),
+        Text(t('roots_sub'),
+            style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        const SizedBox(height: 20),
+
+        Text(t('timeline'),
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: kGreenDark)),
+        Text(t('timeline_sub'),
+            style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 12),
+
+        for (final e in eras)
+          Container(
+            margin: const EdgeInsets.only(bottom: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade300, width: 0.5),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _histImage(e.img),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: kTerracottaLight,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(e.years,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: kTerracotta)),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(pt && e.titlePt.isNotEmpty ? e.titlePt : e.titleEn,
+                          style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: kGreenDark)),
+                      const SizedBox(height: 8),
+                      Text(pt && e.bodyPt.isNotEmpty ? e.bodyPt : e.bodyEn,
+                          style: const TextStyle(
+                              fontSize: 13.5, height: 1.5)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        const SizedBox(height: 8),
+        Row(children: [
+          const Text('🖼  ', style: TextStyle(fontSize: 16)),
+          Text(t('album'),
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: kGreenDark)),
+        ]),
+        Text(t('album_sub'),
+            style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 12),
+
+        for (final it in rootsItems)
+          Card(
+            color: Colors.white,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 14),
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: Colors.grey.shade300, width: 0.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _histImage('history/${it.img}'),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(it.year,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: kTerracotta)),
+                      const SizedBox(height: 4),
+                      Text(pt && it.captionPt.isNotEmpty ? it.captionPt : it.caption,
+                          style: const TextStyle(
+                              fontSize: 13, height: 1.4)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
