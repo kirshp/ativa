@@ -7,6 +7,7 @@ import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'eras_data.dart';
+import 'gazetteer.dart';
 import 'notify.dart';
 import 'roots_data.dart';
 import 'store.dart';
@@ -100,6 +101,7 @@ const _tr = {
     'theme_light': 'Light',
     'theme_dark': 'Dark',
     'contact': 'Contact developer',
+    'nearby_heritage': 'Nearby heritage trail',
   },
   'pt': {
     'home': 'Início',
@@ -159,6 +161,7 @@ const _tr = {
     'theme_light': 'Claro',
     'theme_dark': 'Escuro',
     'contact': 'Contactar o programador',
+    'nearby_heritage': 'Vereda histórica próxima',
   },
 };
 
@@ -784,6 +787,33 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+/// Finds the closest levada (heritage trail) to an event's location, within
+/// [maxKm]. Realizes the "event ↔ heritage place" link: activities happen near
+/// centuries-old work-paths.
+Future<(Levada, double)?> nearestHeritage(String location,
+    {double maxKm = 12}) async {
+  final p = geocode(location);
+  if (p == null) return null;
+  List<Levada> levs;
+  try {
+    levs = await fetchLevadas();
+  } catch (_) {
+    return null;
+  }
+  const d = Distance();
+  Levada? best;
+  double bestKm = maxKm;
+  for (final l in levs) {
+    if (l.center == null) continue;
+    final km = d.as(LengthUnit.Kilometer, p, l.center!);
+    if (km < bestKm) {
+      bestKm = km;
+      best = l;
+    }
+  }
+  return best == null ? null : (best, bestKm);
+}
+
 void showEventActions(BuildContext context, AtivaEvent e) {
   final key = 'event:${e.name}|${e.date}';
   showModalBottomSheet(
@@ -808,6 +838,35 @@ void showEventActions(BuildContext context, AtivaEvent e) {
                 [e.date, if (e.location.isNotEmpty) e.location, e.type]
                     .join(' · '),
                 style: TextStyle(fontSize: 13, color: ctx.cSubtle)),
+          ),
+          FutureBuilder<(Levada, double)?>(
+            future: nearestHeritage(e.location),
+            builder: (_, snap) {
+              final r = snap.data;
+              if (r == null) return const SizedBox.shrink();
+              final (l, km) = r;
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                decoration: BoxDecoration(
+                  color: ctx.cTerraTint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.account_balance_outlined,
+                      color: ctx.cTerraText),
+                  title: Text('${t('nearby_heritage')} · ${km.toStringAsFixed(1)} km',
+                      style: TextStyle(
+                          fontSize: 12, color: ctx.cTerraText)),
+                  subtitle: Text('${l.code} · ${l.name}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () =>
+                      openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
+                ),
+              );
+            },
           ),
           if (e.url.isNotEmpty)
             ListTile(
@@ -1590,6 +1649,8 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   List<Levada>? _levadas;
+  List<(AtivaEvent, LatLng)> _events = [];
+  String _layer = 'events';
 
   @override
   void initState() {
@@ -1599,6 +1660,14 @@ class _MapPageState extends State<MapPage> {
     }).catchError((_) {
       if (mounted) setState(() => _levadas = []);
     });
+    fetchEvents().then((list) {
+      final geo = <(AtivaEvent, LatLng)>[];
+      for (final e in list) {
+        final p = geocode(e.location);
+        if (p != null) geo.add((e, p));
+      }
+      if (mounted) setState(() => _events = geo);
+    }).catchError((_) {});
   }
 
   void _showTrail(Levada l) {
@@ -1652,46 +1721,101 @@ class _MapPageState extends State<MapPage> {
     if (_levadas == null) {
       return const Center(child: CircularProgressIndicator(color: kGreen));
     }
-    return FlutterMap(
-      options: const MapOptions(
-        initialCenter: LatLng(32.75, -16.97),
-        initialZoom: 10,
-      ),
+    final showEvents = _layer == 'events';
+    return Stack(
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.shpara.ativa',
-        ),
-        MarkerLayer(
-          markers: [
-            for (final l in _levadas!)
-              if (l.center != null)
-                Marker(
-                  point: l.center!,
-                  width: 34,
-                  height: 34,
-                  child: GestureDetector(
-                    onTap: () => _showTrail(l),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: l.status == 'open' ? kGreen : Colors.grey,
-                        shape: BoxShape.circle,
-                        border:
-                            Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: const Icon(Icons.directions_walk,
-                          size: 18, color: Colors.white),
-                    ),
-                  ),
-                ),
+        FlutterMap(
+          options: const MapOptions(
+            initialCenter: LatLng(32.75, -16.97),
+            initialZoom: 10,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.shpara.ativa',
+            ),
+            MarkerLayer(
+              markers: showEvents
+                  ? [
+                      for (final (e, p) in _events)
+                        Marker(
+                          point: p,
+                          width: 34,
+                          height: 34,
+                          child: GestureDetector(
+                            onTap: () => showEventActions(context, e),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: kTerracotta,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 2),
+                              ),
+                              child: Icon(_typeIcons[e.type] ?? Icons.event,
+                                  size: 17, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                    ]
+                  : [
+                      for (final l in _levadas!)
+                        if (l.center != null)
+                          Marker(
+                            point: l.center!,
+                            width: 34,
+                            height: 34,
+                            child: GestureDetector(
+                              onTap: () => _showTrail(l),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: l.status == 'open'
+                                      ? kGreen
+                                      : Colors.grey,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: Colors.white, width: 2),
+                                ),
+                                child: const Icon(Icons.directions_walk,
+                                    size: 18, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                    ],
+            ),
+            const Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: EdgeInsets.all(4),
+                child: Text('© OpenStreetMap',
+                    style: TextStyle(fontSize: 10, color: Colors.black54)),
+              ),
+            ),
           ],
         ),
-        const Align(
-          alignment: Alignment.bottomLeft,
-          child: Padding(
-            padding: EdgeInsets.all(4),
-            child: Text('© OpenStreetMap',
-                style: TextStyle(fontSize: 10, color: Colors.black54)),
+        Positioned(
+          top: 10,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: SegmentedButton<String>(
+              style: SegmentedButton.styleFrom(
+                  backgroundColor: context.cSurface),
+              segments: [
+                ButtonSegment(
+                    value: 'events',
+                    icon: const Icon(Icons.event, size: 16),
+                    label: Text('${t('events')} (${_events.length})',
+                        style: const TextStyle(fontSize: 12))),
+                ButtonSegment(
+                    value: 'levadas',
+                    icon: const Icon(Icons.hiking, size: 16),
+                    label: Text(t('levadas'),
+                        style: const TextStyle(fontSize: 12))),
+              ],
+              selected: {_layer},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => setState(() => _layer = s.first),
+            ),
           ),
         ),
       ],
