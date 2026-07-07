@@ -1,13 +1,11 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'eras_data.dart';
 import 'roots_data.dart';
+import 'store.dart';
 
 const kGreen = Color(0xFF0F6E56);
 const kGreenDark = Color(0xFF085041);
@@ -117,7 +115,11 @@ Future<void> openUrl(String url) async {
   }
 }
 
-void main() => runApp(const AtivaApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initStore();
+  runApp(const AtivaApp());
+}
 
 class AtivaApp extends StatelessWidget {
   const AtivaApp({super.key});
@@ -275,10 +277,7 @@ class AtivaEvent {
 }
 
 Future<List<AtivaEvent>> fetchEvents() async {
-  final r = await http
-      .get(Uri.parse('https://shpara.com/madeira/events.json'))
-      .timeout(const Duration(seconds: 15));
-  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final data = await cachedJson('https://shpara.com/madeira/events.json');
   final today = DateTime.now().toIso8601String().substring(0, 10);
   return (data['events'] as List)
       .map((e) => AtivaEvent.fromJson(e))
@@ -326,10 +325,7 @@ class Broadcast {
 }
 
 Future<List<Broadcast>> fetchBroadcasts() async {
-  final r = await http
-      .get(Uri.parse('https://shpara.com/madeira/tv_broadcasts.json'))
-      .timeout(const Duration(seconds: 15));
-  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final data = await cachedJson('https://shpara.com/madeira/tv_broadcasts.json');
   final list = (data['events'] ?? data['broadcasts'] ?? []) as List;
   final today = DateTime.now().toIso8601String().substring(0, 10);
   return list
@@ -350,10 +346,7 @@ class WatchItem {
 }
 
 Future<List<WatchItem>> fetchWatchlist() async {
-  final r = await http
-      .get(Uri.parse('https://shpara.com/madeira/watchlist.json'))
-      .timeout(const Duration(seconds: 15));
-  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final data = await cachedJson('https://shpara.com/madeira/watchlist.json');
   final list =
       (data is List ? data : data['watchlist'] ?? data['items'] ?? []) as List;
   return list.map((j) => WatchItem.fromJson(j)).toList();
@@ -410,10 +403,8 @@ class _HomePageState extends State<HomePage> {
       if (mounted) setState(() => _tv = tv);
     } catch (_) {}
     try {
-      final r = await http
-          .get(Uri.parse('https://shpara.com/madeira/news_feed.json'))
-          .timeout(const Duration(seconds: 15));
-      final data = jsonDecode(utf8.decode(r.bodyBytes));
+      final data =
+          await cachedJson('https://shpara.com/madeira/news_feed.json');
       final list =
           (data is List ? data : data['items'] ?? data['news'] ?? []) as List;
       if (mounted) {
@@ -699,14 +690,33 @@ class _EventTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final String? favKey;
   const _EventTile(
       {required this.icon,
       required this.title,
       required this.subtitle,
-      this.onTap});
+      this.onTap,
+      this.favKey});
 
   @override
   Widget build(BuildContext context) {
+    Widget? trailing;
+    if (favKey != null) {
+      trailing = ValueListenableBuilder(
+        valueListenable: favorites,
+        builder: (_, __, ___) {
+          final fav = isFav(favKey!);
+          return IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: Icon(fav ? Icons.star : Icons.star_border,
+                color: fav ? kTerracotta : Colors.grey, size: 20),
+            onPressed: () => toggleFav(favKey!),
+          );
+        },
+      );
+    } else if (onTap != null) {
+      trailing = const Icon(Icons.chevron_right, color: Colors.grey);
+    }
     return Card(
       color: Colors.white,
       elevation: 0,
@@ -719,9 +729,7 @@ class _EventTile extends StatelessWidget {
         title: Text(title,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-        trailing: onTap == null
-            ? null
-            : const Icon(Icons.chevron_right, color: Colors.grey),
+        trailing: trailing,
         onTap: onTap,
       ),
     );
@@ -741,6 +749,11 @@ class _EventsPageState extends State<EventsPage> {
   String? _error;
   String _filter = 'all';
   String? _day;
+  String _query = '';
+  bool _searching = false;
+  bool _favOnly = false;
+
+  String _favKey(AtivaEvent e) => 'event:${e.name}|${e.date}';
 
   // Event categories mirror the Madeira site's mode filter (grouped by `mode`).
   static const _modeCats = <(String, String, String)>[
@@ -812,6 +825,17 @@ class _EventsPageState extends State<EventsPage> {
     if (_day != null) {
       shown = shown.where((e) => e.date == _day).toList();
     }
+    if (_favOnly) {
+      shown = shown.where((e) => isFav(_favKey(e))).toList();
+    }
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      shown = shown
+          .where((e) =>
+              e.name.toLowerCase().contains(q) ||
+              e.location.toLowerCase().contains(q))
+          .toList();
+    }
     final eventDays = _events!.map((e) => e.date).toSet();
     final today = DateTime.now();
     final days = List.generate(30, (i) => today.add(Duration(days: i)));
@@ -820,7 +844,7 @@ class _EventsPageState extends State<EventsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
           child: Row(
             children: [
               Text(t('events'),
@@ -836,9 +860,42 @@ class _EventsPageState extends State<EventsPage> {
                   avatar: const Icon(Icons.close, size: 14),
                   onPressed: () => setState(() => _day = null),
                 ),
+              ValueListenableBuilder(
+                valueListenable: favorites,
+                builder: (_, __, ___) => IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(_favOnly ? Icons.star : Icons.star_border,
+                      color: _favOnly ? kTerracotta : kGreenDark),
+                  onPressed: () => setState(() => _favOnly = !_favOnly),
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Icon(_searching ? Icons.search_off : Icons.search,
+                    color: kGreenDark),
+                onPressed: () => setState(() {
+                  _searching = !_searching;
+                  if (!_searching) _query = '';
+                }),
+              ),
             ],
           ),
         ),
+        if (_searching)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              autofocus: true,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: '${t('events')}…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
         SizedBox(
           height: 62,
           child: ListView(
@@ -939,7 +996,10 @@ class _EventsPageState extends State<EventsPage> {
             color: kGreen,
             onRefresh: _load,
             child: Builder(builder: (_) {
-              final showWatch = _day == null && _watch.isNotEmpty;
+              final showWatch = _day == null &&
+                  !_favOnly &&
+                  _query.isEmpty &&
+                  _watch.isNotEmpty;
               final watchStart = shown.length;
               return ListView.builder(
                 padding: const EdgeInsets.all(12),
@@ -969,6 +1029,7 @@ class _EventsPageState extends State<EventsPage> {
                               : '${e.location} · ${e.type}',
                           onTap:
                               e.url.isEmpty ? null : () => openUrl(e.url),
+                          favKey: _favKey(e),
                         ),
                       ],
                     );
@@ -1062,10 +1123,7 @@ List<Levada>? _levadaCache;
 
 Future<List<Levada>> fetchLevadas() async {
   if (_levadaCache != null) return _levadaCache!;
-  final r = await http
-      .get(Uri.parse('https://shpara.com/madeira/levadas.json'))
-      .timeout(const Duration(seconds: 15));
-  final data = jsonDecode(utf8.decode(r.bodyBytes));
+  final data = await cachedJson('https://shpara.com/madeira/levadas.json');
   _levadaCache = (data['levadas'] as List)
       .map((j) => Levada.fromJson(j))
       .toList();
@@ -1081,6 +1139,11 @@ class LevadasPage extends StatefulWidget {
 
 class _LevadasPageState extends State<LevadasPage> {
   List<Levada>? _levadas;
+  String _query = '';
+  bool _searching = false;
+  bool _favOnly = false;
+
+  String _favKey(Levada l) => 'levada:${l.code}';
 
   @override
   void initState() {
@@ -1097,9 +1160,21 @@ class _LevadasPageState extends State<LevadasPage> {
     if (_levadas == null) {
       return const Center(child: CircularProgressIndicator(color: kGreen));
     }
+    var shown = _levadas!;
+    if (_favOnly) {
+      shown = shown.where((l) => isFav(_favKey(l))).toList();
+    }
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      shown = shown
+          .where((l) =>
+              l.name.toLowerCase().contains(q) ||
+              l.code.toLowerCase().contains(q))
+          .toList();
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: _levadas!.length + 1,
+      itemCount: shown.length + 1,
       itemBuilder: (_, i) {
         if (i == 0) {
           double km = 0, climb = 0;
@@ -1111,13 +1186,54 @@ class _LevadasPageState extends State<LevadasPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-                child: Text(t('levadas'),
-                    style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: kGreenDark)),
+                padding: const EdgeInsets.fromLTRB(4, 4, 0, 10),
+                child: Row(
+                  children: [
+                    Text(t('levadas'),
+                        style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: kGreenDark)),
+                    const Spacer(),
+                    ValueListenableBuilder(
+                      valueListenable: favorites,
+                      builder: (_, __, ___) => IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                            _favOnly ? Icons.star : Icons.star_border,
+                            color: _favOnly ? kTerracotta : kGreenDark),
+                        onPressed: () =>
+                            setState(() => _favOnly = !_favOnly),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                          _searching ? Icons.search_off : Icons.search,
+                          color: kGreenDark),
+                      onPressed: () => setState(() {
+                        _searching = !_searching;
+                        if (!_searching) _query = '';
+                      }),
+                    ),
+                  ],
+                ),
               ),
+              if (_searching)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+                  child: TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '${t('levadas')}…',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1139,7 +1255,7 @@ class _LevadasPageState extends State<LevadasPage> {
             ],
           );
         }
-        final l = _levadas![i - 1];
+        final l = shown[i - 1];
         final open = l.status == 'open';
         return Card(
           color: Colors.white,
@@ -1175,7 +1291,18 @@ class _LevadasPageState extends State<LevadasPage> {
                 style: TextStyle(
                     fontSize: 12,
                     color: open ? Colors.grey.shade700 : Colors.red)),
-            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+            trailing: ValueListenableBuilder(
+              valueListenable: favorites,
+              builder: (_, __, ___) {
+                final fav = isFav(_favKey(l));
+                return IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(fav ? Icons.star : Icons.star_border,
+                      color: fav ? kTerracotta : Colors.grey, size: 20),
+                  onPressed: () => toggleFav(_favKey(l)),
+                );
+              },
+            ),
             onTap: () =>
                 openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
           ),
@@ -1324,10 +1451,8 @@ class _NewsPageState extends State<NewsPage> {
 
   Future<void> _load() async {
     try {
-      final r = await http
-          .get(Uri.parse('https://shpara.com/madeira/news_feed.json'))
-          .timeout(const Duration(seconds: 15));
-      final data = jsonDecode(utf8.decode(r.bodyBytes));
+      final data =
+          await cachedJson('https://shpara.com/madeira/news_feed.json');
       final list =
           (data is List ? data : data['items'] ?? data['news'] ?? []) as List;
       if (mounted) {
