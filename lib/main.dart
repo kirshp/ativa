@@ -1796,14 +1796,36 @@ class _MapPageState extends State<MapPage> {
         Positioned(
           right: 14,
           bottom: 24,
-          child: FloatingActionButton.extended(
-            heroTag: 'map3d',
-            backgroundColor: kGreen,
-            foregroundColor: Colors.white,
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const Map3DPage())),
-            icon: const Icon(Icons.threed_rotation),
-            label: const Text('3D'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'mapheat',
+                backgroundColor: kTerracotta,
+                foregroundColor: Colors.white,
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const WebPage(
+                            title: 'Heatmap',
+                            url: 'https://shpara.com/madeira/map'))),
+                icon: const Icon(Icons.local_fire_department),
+                label: const Text('Heat'),
+              ),
+              const SizedBox(height: 10),
+              FloatingActionButton.extended(
+                heroTag: 'map3d',
+                backgroundColor: kGreen,
+                foregroundColor: Colors.white,
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const WebPage(
+                            title: '3D',
+                            url: 'https://shpara.com/madeira/map3d'))),
+                icon: const Icon(Icons.threed_rotation),
+                label: const Text('3D'),
+              ),
+            ],
           ),
         ),
         Positioned(
@@ -1837,14 +1859,16 @@ class _MapPageState extends State<MapPage> {
   }
 }
 
-class Map3DPage extends StatefulWidget {
-  const Map3DPage({super.key});
+class WebPage extends StatefulWidget {
+  final String title;
+  final String url;
+  const WebPage({super.key, required this.title, required this.url});
 
   @override
-  State<Map3DPage> createState() => _Map3DPageState();
+  State<WebPage> createState() => _WebPageState();
 }
 
-class _Map3DPageState extends State<Map3DPage> {
+class _WebPageState extends State<WebPage> {
   late final WebViewController _c;
   bool _loading = true;
 
@@ -1853,17 +1877,16 @@ class _Map3DPageState extends State<Map3DPage> {
     super.initState();
     _c = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-          onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
-          }))
-      ..loadRequest(Uri.parse('https://shpara.com/madeira/map3d'));
+      ..setNavigationDelegate(NavigationDelegate(onPageFinished: (_) {
+        if (mounted) setState(() => _loading = false);
+      }))
+      ..loadRequest(Uri.parse(widget.url));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('3D')),
+      appBar: AppBar(title: Text(widget.title)),
       body: Stack(
         children: [
           WebViewWidget(controller: _c),
