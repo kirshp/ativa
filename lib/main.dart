@@ -7,11 +7,11 @@ import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'eras_data.dart';
 import 'gazetteer.dart';
 import 'notify.dart';
-import 'roots_data.dart';
+import 'roots_page.dart';
 import 'store.dart';
+import 'stories_data.dart';
 
 const kGreen = Color(0xFF0F6E56);
 const kGreenDark = Color(0xFF085041);
@@ -103,6 +103,9 @@ const _tr = {
     'theme_dark': 'Dark',
     'contact': 'Contact developer',
     'nearby_heritage': 'Nearby heritage trail',
+    'stories': 'Island stories',
+    'stories_sub': 'Six themes, six centuries — tap a card to read.',
+    'album_open': 'Open the album',
   },
   'pt': {
     'home': 'Início',
@@ -163,6 +166,9 @@ const _tr = {
     'theme_dark': 'Escuro',
     'contact': 'Contactar o programador',
     'nearby_heritage': 'Vereda histórica próxima',
+    'stories': 'Histórias da ilha',
+    'stories_sub': 'Seis temas, seis séculos — toque num cartão para ler.',
+    'album_open': 'Abrir o álbum',
   },
 };
 
@@ -2136,7 +2142,7 @@ Widget _stat(String value, String label) {
   );
 }
 
-Widget _histImage(String path, {double height = 190}) {
+Widget histImage(String path, {double height = 190}) {
   return Image.network(
     'https://shpara.com/madeira/$path',
     height: height,
@@ -2152,132 +2158,4 @@ Widget _histImage(String path, {double height = 190}) {
     errorBuilder: (_, __, ___) =>
         Container(height: 60, color: kTerracottaLight),
   );
-}
-
-class RootsPage extends StatelessWidget {
-  const RootsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final pt = locale.value == 'pt';
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(t('roots_h1'),
-            style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: kTerracotta)),
-        const SizedBox(height: 4),
-        Text(t('roots_sub'),
-            style: const TextStyle(fontSize: 13, color: Colors.grey)),
-        const SizedBox(height: 20),
-
-        Text(t('timeline'),
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: context.cTitle)),
-        Text(t('timeline_sub'),
-            style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-
-        for (final e in eras)
-          Container(
-            margin: const EdgeInsets.only(bottom: 18),
-            decoration: BoxDecoration(
-              color: context.cSurface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade300, width: 0.5),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _histImage(e.img),
-                Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: context.cTerraTint,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(e.years,
-                            style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: kTerracotta)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(pt && e.titlePt.isNotEmpty ? e.titlePt : e.titleEn,
-                          style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: context.cTitle)),
-                      const SizedBox(height: 8),
-                      Text(pt && e.bodyPt.isNotEmpty ? e.bodyPt : e.bodyEn,
-                          style: const TextStyle(
-                              fontSize: 13.5, height: 1.5)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        const SizedBox(height: 8),
-        Row(children: [
-          const Text('🖼  ', style: TextStyle(fontSize: 16)),
-          Text(t('album'),
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: context.cTitle)),
-        ]),
-        Text(t('album_sub'),
-            style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 12),
-
-        for (final it in rootsItems)
-          Card(
-            color: context.cSurface,
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 14),
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: Colors.grey.shade300, width: 0.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _histImage('history/${it.img}'),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(it.year,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: kTerracotta)),
-                      const SizedBox(height: 4),
-                      Text(pt && it.captionPt.isNotEmpty ? it.captionPt : it.caption,
-                          style: const TextStyle(
-                              fontSize: 13, height: 1.4)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
 }
