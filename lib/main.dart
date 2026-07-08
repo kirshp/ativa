@@ -610,6 +610,7 @@ class _HomePageState extends State<HomePage> {
   List<AtivaEvent>? _events;
   List<NewsItem>? _news;
   List<Broadcast> _tv = [];
+  List<TrailGeo> _geo = [];
 
   @override
   void initState() {
@@ -627,6 +628,10 @@ class _HomePageState extends State<HomePage> {
     try {
       final tv = await fetchBroadcasts();
       if (mounted) setState(() => _tv = tv);
+    } catch (_) {}
+    try {
+      final g = await fetchTrailGeo();
+      if (mounted) setState(() => _geo = g);
     } catch (_) {}
     try {
       final data =
@@ -668,6 +673,69 @@ class _HomePageState extends State<HomePage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (_geo.isNotEmpty)
+            GestureDetector(
+              onTap: () => widget.onNavigate(2),
+              child: Container(
+                height: 190,
+                margin: const EdgeInsets.only(bottom: 16),
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: context.cHairline, width: 0.5),
+                ),
+                child: Stack(children: [
+                  IgnorePointer(
+                    child: FlutterMap(
+                      options: const MapOptions(
+                        initialCenter: LatLng(32.745, -16.96),
+                        initialZoom: 9.1,
+                        interactionOptions: InteractionOptions(
+                            flags: InteractiveFlag.none),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.shpara.ativa',
+                        ),
+                        PolylineLayer(polylines: [
+                          for (final t in _geo)
+                            for (final line in t.lines)
+                              Polyline(
+                                points: line,
+                                strokeWidth: 2.2,
+                                color: t.status == 'open'
+                                    ? kGreen
+                                    : (t.status == 'closed'
+                                        ? const Color(0xFFD84A3A)
+                                        : const Color(0xFFE8920E)),
+                              ),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    left: 10,
+                    bottom: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: kGreenDark.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                          '${t('levadas_teaser')} · ${_geo.length} PR',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white)),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 16),
@@ -1580,6 +1648,34 @@ Future<List<Levada>> fetchLevadas() async {
       .map((j) => Levada.fromJson(j))
       .toList();
   return _levadaCache!;
+}
+
+
+class TrailGeo {
+  final String status;
+  final List<List<LatLng>> lines;
+  TrailGeo(this.status, this.lines);
+}
+
+List<TrailGeo>? _trailGeoCache;
+
+Future<List<TrailGeo>> fetchTrailGeo() async {
+  if (_trailGeoCache != null) return _trailGeoCache!;
+  final data = await cachedJson('https://shpara.com/madeira/trails_geo.json');
+  _trailGeoCache = [
+    for (final t in (data['trails'] as List))
+      TrailGeo(
+        t['status'] ?? '',
+        [
+          for (final line in (t['lines'] as List? ?? []))
+            [
+              for (final p in (line as List))
+                LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble())
+            ]
+        ],
+      )
+  ];
+  return _trailGeoCache!;
 }
 
 class LevadasPage extends StatefulWidget {
