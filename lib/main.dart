@@ -202,6 +202,52 @@ Future<void> openUrl(String url) async {
   }
 }
 
+
+/// Grey placeholder cards shown while a list loads.
+Widget skeletonList(BuildContext context, {int count = 6}) {
+  return ListView.builder(
+    padding: const EdgeInsets.all(16),
+    itemCount: count,
+    itemBuilder: (_, __) => Container(
+      height: 72,
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: context.cSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cHairline, width: 0.5),
+      ),
+      child: Row(children: [
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: CircleAvatar(
+              radius: 16, backgroundColor: context.cGreenTint),
+        ),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                  height: 12,
+                  width: 180,
+                  decoration: BoxDecoration(
+                      color: context.cGreenTint,
+                      borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 8),
+              Container(
+                  height: 10,
+                  width: 120,
+                  decoration: BoxDecoration(
+                      color: context.cHairline,
+                      borderRadius: BorderRadius.circular(4))),
+            ],
+          ),
+        ),
+      ]),
+    ),
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initStore();
@@ -335,12 +381,37 @@ class _HomeShellState extends State<HomeShell> {
               title: Text(t('telegram')),
               onTap: () => openUrl('https://t.me/madeira_ebot'),
             ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.code, color: kGreen),
+              title: const Text('GitHub · app'),
+              subtitle: const Text('kirshp/ativa'),
+              onTap: () => openUrl('https://github.com/kirshp/ativa'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.public, color: kGreen),
+              title: const Text('GitHub · web'),
+              subtitle: const Text('kirshp/madeira-ative'),
+              onTap: () => openUrl('https://github.com/kirshp/madeira-ative'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics_outlined, color: kGreen),
+              title: const Text('GitHub · BullDozer'),
+              subtitle: const Text('kirshp/bulldozer'),
+              onTap: () => openUrl('https://github.com/kirshp/bulldozer'),
+            ),
             ListTile(
               leading: const Icon(Icons.mail_outline, color: kGreen),
               title: Text(t('contact')),
               subtitle: const Text('azenha.agent@gmail.com'),
               onTap: () => openUrl(
                   'mailto:azenha.agent@gmail.com?subject=Madeira%20Ativa'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.code, color: kGreen),
+              title: const Text('GitHub'),
+              subtitle: const Text('github.com/kirshp/ativa'),
+              onTap: () => openUrl('https://github.com/kirshp/ativa'),
             ),
             const Divider(),
             ListTile(
@@ -1060,6 +1131,7 @@ class _EventsPageState extends State<EventsPage> {
   String _query = '';
   bool _searching = false;
   bool _favOnly = false;
+  bool _compact = false;
   String _period = 'month';
 
   static const _periods = <(String, String, int)>[
@@ -1126,7 +1198,7 @@ class _EventsPageState extends State<EventsPage> {
       ));
     }
     if (_events == null) {
-      return const Center(child: CircularProgressIndicator(color: kGreen));
+      return skeletonList(context);
     }
     // Category filter mirrors the Madeira site exactly: orienteering is a
     // subset of mode 'trail' (by the Orientação heuristic), trail excludes it,
@@ -1223,8 +1295,10 @@ class _EventsPageState extends State<EventsPage> {
               onChanged: (v) => setState(() => _query = v),
             ),
           ),
-        SizedBox(
-          height: 38,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          child: SizedBox(
+          height: _compact ? 0 : 38,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1250,6 +1324,7 @@ class _EventsPageState extends State<EventsPage> {
                   ),
                 ),
             ],
+          ),
           ),
         ),
         SizedBox(
@@ -1348,7 +1423,13 @@ class _EventsPageState extends State<EventsPage> {
               style: const TextStyle(fontSize: 12, color: Colors.grey)),
         ),
         Expanded(
-          child: RefreshIndicator(
+          child: NotificationListener<ScrollUpdateNotification>(
+            onNotification: (n) {
+              final down = n.metrics.pixels > 40;
+              if (down != _compact) setState(() => _compact = down);
+              return false;
+            },
+            child: RefreshIndicator(
             color: kGreen,
             onRefresh: _load,
             child: Builder(builder: (_) {
@@ -1456,6 +1537,7 @@ class _EventsPageState extends State<EventsPage> {
                 },
               );
             }),
+            ),
           ),
         ),
       ],
@@ -1529,7 +1611,7 @@ class _LevadasPageState extends State<LevadasPage> {
   @override
   Widget build(BuildContext context) {
     if (_levadas == null) {
-      return const Center(child: CircularProgressIndicator(color: kGreen));
+      return skeletonList(context);
     }
     var shown = _levadas!;
     if (_favOnly) {
@@ -1781,7 +1863,7 @@ class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     if (_levadas == null) {
-      return const Center(child: CircularProgressIndicator(color: kGreen));
+      return skeletonList(context);
     }
     final showEvents = _layer == 'events';
     return Stack(
@@ -1994,7 +2076,7 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) {
     if (_news == null) {
-      return const Center(child: CircularProgressIndicator(color: kGreen));
+      return skeletonList(context);
     }
     return RefreshIndicator(
       color: kGreen,
