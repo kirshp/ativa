@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +35,7 @@ Future<dynamic> cachedJson(String url) async {
 bool isFav(String key) => favorites.value.contains(key);
 
 void toggleFav(String key) {
+  HapticFeedback.lightImpact();
   final s = {...favorites.value};
   s.contains(key) ? s.remove(key) : s.add(key);
   favorites.value = s;

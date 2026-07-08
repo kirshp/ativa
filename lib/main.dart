@@ -106,6 +106,11 @@ const _tr = {
     'stories': 'Island stories',
     'stories_sub': 'Six themes, six centuries — tap a card to read.',
     'album_open': 'Open the album',
+    'nothing_found': 'Nothing here — try another period or filter.',
+    'sort': 'Sort',
+    'sort_name': 'By name',
+    'sort_km': 'By distance',
+    'sort_climb': 'By climb',
   },
   'pt': {
     'home': 'Início',
@@ -169,10 +174,25 @@ const _tr = {
     'stories': 'Histórias da ilha',
     'stories_sub': 'Seis temas, seis séculos — toque num cartão para ler.',
     'album_open': 'Abrir o álbum',
+    'nothing_found': 'Nada aqui — tente outro período ou filtro.',
+    'sort': 'Ordenar',
+    'sort_name': 'Por nome',
+    'sort_km': 'Por distância',
+    'sort_climb': 'Por desnível',
   },
 };
 
 String t(String k) => _tr[locale.value]![k] ?? k;
+
+const _wdName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _moName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/// '2026-07-11' -> 'Sat, 11 Jul'
+String fmtDate(String iso) {
+  final d = DateTime.tryParse(iso);
+  if (d == null) return iso;
+  return '${_wdName[d.weekday - 1]}, ${d.day} ${_moName[d.month - 1]}';
+}
 
 Future<void> openUrl(String url) async {
   if (url.isEmpty) return;
@@ -632,7 +652,7 @@ class _HomePageState extends State<HomePage> {
                   Text(
                       hero == null
                           ? t('next_up')
-                          : '${t('next_up')} · ${hero.date} · ${hero.location}',
+                          : '${t('next_up')} · ${fmtDate(hero.date)} · ${hero.location}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -662,7 +682,7 @@ class _HomePageState extends State<HomePage> {
               _EventTile(
                 icon: _typeIcons[e.type] ?? Icons.event,
                 title: e.name,
-                subtitle: '${e.date} · ${e.location} · ${e.type}',
+                subtitle: '${fmtDate(e.date)} · ${e.location} · ${e.type}',
                 onTap: () => showEventActions(context, e),
               ),
           const SizedBox(height: 20),
@@ -842,7 +862,7 @@ void showEventActions(BuildContext context, AtivaEvent e) {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Text(
-                [e.date, if (e.location.isNotEmpty) e.location, e.type]
+                [fmtDate(e.date), if (e.location.isNotEmpty) e.location, e.type]
                     .join(' · '),
                 style: TextStyle(fontSize: 13, color: ctx.cSubtle)),
           ),
@@ -1337,6 +1357,21 @@ class _EventsPageState extends State<EventsPage> {
                   _query.isEmpty &&
                   _watch.isNotEmpty;
               final watchStart = shown.length;
+              if (shown.isEmpty && !showWatch) {
+                return ListView(children: [
+                  Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(children: [
+                      Icon(Icons.search_off,
+                          size: 40, color: context.cSubtle),
+                      const SizedBox(height: 10),
+                      Text(t('nothing_found'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: context.cSubtle)),
+                    ]),
+                  ),
+                ]);
+              }
               return ListView.builder(
                 padding: const EdgeInsets.all(12),
                 itemCount:
@@ -1351,7 +1386,7 @@ class _EventsPageState extends State<EventsPage> {
                         if (showDate)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
-                            child: Text(e.date,
+                            child: Text(fmtDate(e.date),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1477,6 +1512,7 @@ class _LevadasPageState extends State<LevadasPage> {
   String _query = '';
   bool _searching = false;
   bool _favOnly = false;
+  String _sort = 'name';
 
   String _favKey(Levada l) => 'levada:${l.code}';
 
@@ -1506,6 +1542,13 @@ class _LevadasPageState extends State<LevadasPage> {
               l.name.toLowerCase().contains(q) ||
               l.code.toLowerCase().contains(q))
           .toList();
+    }
+    shown = [...shown];
+    double numOf(String s) => double.tryParse(s) ?? 0;
+    if (_sort == 'km') {
+      shown.sort((a, b) => numOf(b.distance).compareTo(numOf(a.distance)));
+    } else if (_sort == 'climb') {
+      shown.sort((a, b) => numOf(b.ascent).compareTo(numOf(a.ascent)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -1540,6 +1583,18 @@ class _LevadasPageState extends State<LevadasPage> {
                         onPressed: () =>
                             setState(() => _favOnly = !_favOnly),
                       ),
+                    ),
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.sort, color: context.cTitle),
+                      onSelected: (v) => setState(() => _sort = v),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                            value: 'name', child: Text(t('sort_name'))),
+                        PopupMenuItem(
+                            value: 'km', child: Text(t('sort_km'))),
+                        PopupMenuItem(
+                            value: 'climb', child: Text(t('sort_climb'))),
+                      ],
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
