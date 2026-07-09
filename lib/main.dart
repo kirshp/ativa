@@ -41,7 +41,7 @@ extension AtivaColors on BuildContext {
 }
 
 final locale = ValueNotifier<String>('en');
-final themeModeN = ValueNotifier<ThemeMode>(ThemeMode.system);
+final themeModeN = ValueNotifier<ThemeMode>(ThemeMode.light);
 
 const _tr = {
   'en': {
@@ -254,7 +254,7 @@ void main() async {
   await initNotify();
   final saved = prefs.getString('themeMode');
   themeModeN.value = ThemeMode.values.firstWhere((m) => m.name == saved,
-      orElse: () => ThemeMode.system);
+      orElse: () => ThemeMode.light);
   runApp(const AtivaApp());
 }
 
