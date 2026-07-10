@@ -48,4 +48,8 @@ app.*.map.json
 android/key.properties
 *.jks
 *.keystore
-store/
+store/**/*.aab
+store/**/*.apk
+store/**/*.ipa
+store/ios/Runner.app/
+store/android/*.png
