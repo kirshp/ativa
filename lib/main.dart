@@ -8,6 +8,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'gazetteer.dart';
+import 'levada_page.dart';
+import 'stats_page.dart';
 import 'notify.dart';
 import 'roots_page.dart';
 import 'store.dart';
@@ -111,6 +113,7 @@ const _tr = {
     'sort_name': 'By name',
     'sort_km': 'By distance',
     'sort_climb': 'By climb',
+    'stats': 'Trail stats','finishers_year':'Finishers by year','top_clubs':'Top clubs','top_localities':'Top localities','toughest':'Toughest races (DNF %)','finish_hours':'Finish times (hour of day)','loyalty':'Returning runners (years raced)','elev_profile':'Elevation profile','status_changed':'Trail status changed','p_next':'Next',
   },
   'pt': {
     'home': 'Início',
@@ -179,6 +182,7 @@ const _tr = {
     'sort_name': 'Por nome',
     'sort_km': 'Por distância',
     'sort_climb': 'Por desnível',
+    'stats': 'Estatísticas','finishers_year':'Finalistas por ano','top_clubs':'Melhores clubes','top_localities':'Localidades','toughest':'Provas mais duras (DNF %)','finish_hours':'Horas de chegada','loyalty':'Corredores fiéis (anos)','elev_profile':'Perfil de altitude','status_changed':'Estado do trilho mudou','p_next':'Próximo',
   },
 };
 
@@ -380,6 +384,29 @@ class _HomeShellState extends State<HomeShell> {
               leading: const Icon(Icons.send, color: kGreen),
               title: Text(t('telegram')),
               onTap: () => openUrl('https://t.me/madeira_ebot'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.bar_chart, color: kGreen),
+              title: Text(t('stats')),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const StatsPage())),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flight, color: kGreen),
+              title: const Text('3D flyover'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const WebPage(
+                      title: '3D flyover',
+                      url: 'https://shpara.com/madeira/mapfly'))),
+            ),
+            ListTile(
+              leading: const Icon(Icons.terrain, color: kGreen),
+              title: const Text('Aerial view'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const WebPage(
+                      title: 'Aerial',
+                      url: 'https://shpara.com/madeira/mapbay'))),
             ),
             const Divider(),
             ListTile(
@@ -1203,6 +1230,7 @@ class _EventsPageState extends State<EventsPage> {
   String _period = 'month';
 
   static const _periods = <(String, String, int)>[
+    ('next', 'p_next', 0),
     ('week', 'p_week', 7),
     ('month', 'p_month', 31),
     ('3mo', 'p_3mo', 92),
@@ -1284,6 +1312,12 @@ class _EventsPageState extends State<EventsPage> {
     };
     if (_day != null) {
       shown = shown.where((e) => e.date == _day).toList();
+    } else if (_period == 'next') {
+      // Only the first upcoming day that has events (site's "Next" mode).
+      if (shown.isNotEmpty) {
+        final first = shown.first.date;
+        shown = shown.where((e) => e.date == first).toList();
+      }
     } else {
       // No specific day picked: bound the list by the selected period window.
       final end = DateTime.now()
@@ -1613,6 +1647,13 @@ class _EventsPageState extends State<EventsPage> {
   }
 }
 
+List<double> _parseProfile(dynamic p) {
+  try {
+    final l = p is String ? (p.isEmpty ? [] : (p.startsWith('[') ? (List.from((p as dynamic).isEmpty ? [] : (p as String).replaceAll('[','').replaceAll(']','').split(',').map(double.parse))) : [])) : (p as List? ?? []);
+    return [for (final x in l) (x as num).toDouble()];
+  } catch (_) { return []; }
+}
+
 class Levada {
   final String code;
   final String name;
@@ -1623,6 +1664,8 @@ class Levada {
   final String urlEn;
   final String urlPt;
   final LatLng? center;
+  final List<double> profile;
+  final String fromP, toP;
 
   Levada.fromJson(Map<String, dynamic> j)
       : code = j['code'] ?? '',
@@ -1633,6 +1676,9 @@ class Levada {
         fee = j['charge']?.toString() ?? '',
         urlEn = j['url_en'] ?? '',
         urlPt = j['url_pt'] ?? '',
+        profile = _parseProfile(j['profile']),
+        fromP = j['from'] ?? '',
+        toP = j['to'] ?? '',
         center = j['center'] == null
             ? null
             : LatLng((j['center'][0] as num).toDouble(),
@@ -1647,6 +1693,7 @@ Future<List<Levada>> fetchLevadas() async {
   _levadaCache = (data['levadas'] as List)
       .map((j) => Levada.fromJson(j))
       .toList();
+  _checkStatusChanges(_levadaCache!);
   return _levadaCache!;
 }
 
@@ -1676,6 +1723,27 @@ Future<List<TrailGeo>> fetchTrailGeo() async {
       )
   ];
   return _trailGeoCache!;
+}
+
+/// Compares trail statuses with the previously seen ones and fires a local
+/// notification when something opened/closed since last launch.
+void _checkStatusChanges(List<Levada> ls) {
+  try {
+    final prev = prefs.getString('levada_status') ?? '';
+    final now = ls.map((l) => '\${l.code}:\${l.status}').join(',');
+    if (prev.isNotEmpty && prev != now) {
+      final old = {for (final p in prev.split(',')) p.split(':')[0]: p.split(':').last};
+      final diffs = [
+        for (final l in ls)
+          if (old[l.code] != null && old[l.code] != l.status)
+            '\${l.code} → \${l.status}'
+      ];
+      if (diffs.isNotEmpty) {
+        notifyNow(t('status_changed'), diffs.take(4).join(' · '));
+      }
+    }
+    prefs.setString('levada_status', now);
+  } catch (_) {}
 }
 
 class LevadasPage extends StatefulWidget {
@@ -1761,6 +1829,13 @@ class _LevadasPageState extends State<LevadasPage> {
                         onPressed: () =>
                             setState(() => _favOnly = !_favOnly),
                       ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.bar_chart, color: context.cTitle),
+                      onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const StatsPage())),
                     ),
                     PopupMenuButton<String>(
                       icon: Icon(Icons.sort, color: context.cTitle),
@@ -1859,6 +1934,8 @@ class _LevadasPageState extends State<LevadasPage> {
                 style: TextStyle(
                     fontSize: 12,
                     color: open ? Colors.grey.shade700 : Colors.red)),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => LevadaPage(l: l))),
             trailing: ValueListenableBuilder(
               valueListenable: favorites,
               builder: (_, __, ___) {
@@ -1871,8 +1948,6 @@ class _LevadasPageState extends State<LevadasPage> {
                 );
               },
             ),
-            onTap: () =>
-                openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
           ),
         );
       },
@@ -1943,12 +2018,23 @@ class _MapPageState extends State<MapPage> {
                         const TextStyle(fontSize: 13, color: kTerracotta)),
               ),
             const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () =>
-                  openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
-              icon: const Icon(Icons.open_in_new, size: 16),
-              label: const Text('visitmadeira.com'),
-            ),
+            Row(children: [
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => LevadaPage(l: l)));
+                },
+                icon: const Icon(Icons.landscape, size: 16),
+                label: Text(t('elev_profile')),
+              ),
+              TextButton.icon(
+                onPressed: () =>
+                    openUrl(locale.value == 'pt' ? l.urlPt : l.urlEn),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('visitmadeira.com'),
+              ),
+            ]),
             const SizedBox(height: 8),
           ],
         ),

@@ -92,3 +92,14 @@ Future<void> cancelReminder(String key) async {
   reminders.value = s;
   await prefs.setStringList('reminders', s.toList());
 }
+
+/// Immediate local notification (used for trail status changes).
+Future<void> notifyNow(String title, String body) async {
+  if (!_ready) return;
+  const det = NotificationDetails(
+    android: AndroidNotificationDetails('status', 'Trail status',
+        channelDescription: 'Trail open/closed changes'),
+    iOS: DarwinNotificationDetails(),
+  );
+  await _plugin.show(id: 777, title: title, body: body, notificationDetails: det);
+}
