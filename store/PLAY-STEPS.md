@@ -1,6 +1,6 @@
 # Google Play — step by step
 
-Upload artifact: `store/android/madeira-ativa-v1.6.1.aab`
+Upload artifact: `store/android/madeira-ativa-v1.7.0.aab`
 (signed with YOUR upload key — `~/keystores/ativa-upload.jks`, keep it forever)
 
 ## 1. Account (once)
@@ -22,14 +22,14 @@ Upload artifact: `store/android/madeira-ativa-v1.6.1.aab`
 - Category: **Travel & Local** (or Sports). Contact email: azenha.agent@gmail.com.
 
 ## 4. Policy / content
-- **Privacy policy URL**: `https://shpara.com/madeira/privacy`
+- **Privacy policy URL**: `https://shpara.com/ativa/privacy`
 - **Data safety** form: choose **No data collected / no data shared**.
 - Content rating questionnaire → will come out **Everyone**.
 - Target audience: 13+ (or all ages). No ads.
 
 ## 5. Upload the build
 1. Left menu → **Testing ▸ Closed testing** → create a track.
-2. Upload `store/android/madeira-ativa-v1.6.1.aab`.
+2. Upload `store/android/madeira-ativa-v1.7.0.aab`.
 3. On first upload, accept **Play App Signing** (Google keeps the release key,
    your upload key stays yours — this is correct).
 
@@ -45,4 +45,4 @@ Promote the closed track to Production → submit for review (a few days).
 
 ---
 Artifact checklist: ✅ signed AAB · ✅ icon · ✅ splash · ✅ privacy URL ·
-⬜ feature graphic · ⬜ screenshots · ⬜ 12 testers
+✅ feature graphic · ✅ screenshots (5 phone, 880×1900, store/screenshots/) · ⬜ 12 testers

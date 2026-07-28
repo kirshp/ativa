@@ -5,7 +5,7 @@ Upload file: **`madeira-ativa-vX.Y.Z.aab`** (this folder)
 
 ## What is already done
 - Release AAB is built and signed with the permanent upload key (not debug).
-- App icon, splash, privacy policy (https://shpara.com/madeira/privacy) ready.
+- App icon, splash, privacy policy (https://shpara.com/ativa/privacy) ready.
 - Store texts in `listing.md`, feature graphic `feature-graphic-1024x500.png`.
 
 ## Sequence — first publish
@@ -15,7 +15,7 @@ Upload file: **`madeira-ativa-vX.Y.Z.aab`** (this folder)
    App (not game), Free.
 3. **Store listing:** paste from `listing.md`; upload icon (512×512), feature
    graphic (1024×500), and **min 2 phone screenshots** (take on the phone).
-4. **Privacy:** Policy URL = `https://shpara.com/madeira/privacy`.
+4. **Privacy:** Policy URL = `https://shpara.com/ativa/privacy`.
    Fill "Data safety" → declare: no data collected/shared (matches the policy).
 5. **Content rating** questionnaire → Everyone.
 6. **Closed testing (required for new personal accounts):**

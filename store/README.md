@@ -12,7 +12,7 @@ gitignored (holds large binaries); the signing secrets live outside the repo.
 | **Upload keystore** (Android, KEEP FOREVER) | `~/keystores/ativa-upload.jks` |
 | Keystore password | `~/keystores/ativa-upload.password.txt` |
 | Signing config (gitignored) | `android/key.properties` |
-| Privacy policy (live) | https://shpara.com/madeira/privacy |
+| Privacy policy (live) | https://shpara.com/ativa/privacy |
 | Listing copy (EN/PT) | `store/listing.md` |
 | Screenshots | `store/screenshots/` (add here) |
 | Source repo | https://github.com/kirshp/ativa |

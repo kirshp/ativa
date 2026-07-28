@@ -21,7 +21,7 @@ Xcode (needs the paid Apple Developer account).
    **App Store Connect** → Upload.
 6. **In App Store Connect:** fill listing (texts in `../android/listing.md`,
    works for both), upload **screenshots** (6.7" iPhone required), set privacy
-   (URL `https://shpara.com/madeira/privacy`, "No data collected"), pricing Free.
+   (URL `https://shpara.com/ativa/privacy`, "No data collected"), pricing Free.
 7. Select the uploaded build → **Submit for Review** (1–3 days typical).
 
 ## Sequence — every update afterwards

@@ -33,7 +33,7 @@ Then open `build/ios/archive/Runner.xcarchive` in Xcode Organizer →
 - Description (EN; add PT as a localization).
 - Screenshots: **6.7"** (iPhone 15/14 Pro Max) and **6.5"** sizes — capture on
   your iPhone 13 Pro Max, that covers 6.5".
-- Privacy policy URL: `https://shpara.com/madeira/privacy`
+- Privacy policy URL: `https://shpara.com/ativa/privacy`
 - App Privacy → **Data Not Collected**.
 - Category: Travel (secondary: Sports). Age rating: 4+.
 
