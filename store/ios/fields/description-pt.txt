@@ -1,0 +1,23 @@
+As montanhas da Madeira estão atravessadas por levadas: canais estreitos abertos nas encostas a partir do século XVI para levar a água do norte húmido até aos terrenos agrícolas do sul. Os caminhos de manutenção ao lado delas tornaram-se a rede pedestre da ilha — e quase todas as corridas, caminhadas e festas da Madeira acontecem ainda hoje ao longo dela. A Madeira Ativa mostra as duas coisas ao mesmo tempo.
+
+LEVADAS
+Os 44 percursos PR oficiais, cada um com distância, desnível acumulado, estado atual (aberto ou fechado) e eventuais taxas de acesso, para saber o que a caminhada exige antes de sair do carro. Cada percurso tem a sua própria página com perfil de altimetria, e há estatísticas de conjunto para toda a rede.
+
+EVENTOS
+Trail, corridas de estrada, orientação, ciclismo, natação em águas abertas, triatlo, provas para crianças, automobilismo e festas de freguesia — mais de cem, com filtros por categoria e por período. Defina um lembrete para as provas em que pensa participar, guarde as restantes nos favoritos e adicione qualquer uma ao calendário. Uma lista de acompanhamento separada reúne os eventos com data anunciada mas ainda não confirmada.
+
+Cada evento está ligado à levada centenária mais próxima — na Madeira, desporto e património partilham os mesmos caminhos.
+
+MAPA
+Eventos e percursos numa única vista OpenStreetMap, com camadas comutáveis, geometria dos percursos desenhada e marcadores colocados a partir de um gazetteer incluído na aplicação. Uma vista 3D do terreno, um sobrevoo aéreo e uma camada de popularidade ajudam a perceber a inclinação de uma subida ou a encontrar a alternativa mais tranquila a um percurso muito procurado.
+
+RAÍZES
+A história da ilha em histórias temáticas: uma cronologia de seis épocas, da floresta laurissilva desabitada ao açúcar, ao vinho, ao bordado e à chegada do turismo, com um álbum de dezanove imagens.
+
+NOTÍCIAS E TV
+Notícias de órgãos madeirenses e internacionais independentes em português, inglês, alemão, polaco, ucraniano e russo, sempre com o nome do editor e ligação ao artigo original na fonte. E ainda a lista das próximas transmissões desportivas.
+
+DIA A DIA
+Notificações para os eventos que segue e para percursos que abrem ou fecham. Favoritos e partilha pelo sistema. Cache offline, para que um percurso já aberto continue a funcionar onde não há rede. Tema claro, escuro ou do sistema. Interface em português ou inglês.
+
+A Madeira Ativa é gratuita. Sem conta, sem publicidade e sem nada para comprar.

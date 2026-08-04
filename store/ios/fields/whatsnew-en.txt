@@ -1,0 +1,13 @@
+Version 1.8.0 is the first release of Madeira Ativa on the App Store, and it brings the whole app rather than a preview of it.
+
+All 44 official PR levada trails, each with distance, total climb, open or closed status and access fees, plus an elevation profile per route and statistics for the network as a whole.
+
+The island events calendar: trail running, road races, orienteering, cycling, open-water swimming, triathlon, children's races, motorsport and village festas, filterable by category and period, with reminders, favourites and a watchlist for dates that are announced but not yet confirmed. Every event points to the nearest historic levada.
+
+One map carrying events and trails together on an OpenStreetMap base, alongside a 3D terrain view, an aerial flyover and a popularity layer.
+
+Roots, with the island's history in a six-era timeline and a nineteen-picture album, and a news feed in six languages that credits every publisher.
+
+Built for iPhone: reminders through iOS notifications, calendar integration, the system share sheet, a light, dark or system theme, an offline cache, and an interface in English or Portuguese.
+
+Free, with no account and nothing to buy.
