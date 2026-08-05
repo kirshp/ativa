@@ -6,7 +6,7 @@ Xcode (needs the paid Apple Developer account).
 
 ## Prerequisites
 - **Apple Developer Program — $99/year** (developer.apple.com/programs).
-- Mac + Xcode (already set up). Team: ARY46X758B (kirshp@gmail.com).
+- Mac + Xcode (already set up). Team: ARY46X758B (the developer Apple ID).
 
 ## Sequence — first publish
 1. **Enroll** in the Apple Developer Program ($99) and wait for approval.
